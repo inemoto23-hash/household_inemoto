@@ -1,0 +1,615 @@
+{
+  "expense_categories": [
+    {
+      "id": 1,
+      "name": "食費",
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 2,
+      "name": "生活費",
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 3,
+      "name": "養育費",
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 4,
+      "name": "ローン",
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 6,
+      "name": "娯楽費",
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 7,
+      "name": "車維持費",
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 8,
+      "name": "医療費",
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 9,
+      "name": "公共料金",
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 10,
+      "name": "投資",
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 11,
+      "name": "その他",
+      "created_at": "2025-08-31 09:15:20"
+    },
+    {
+      "id": 12,
+      "name": "たけ小遣い",
+      "created_at": "2025-08-31 13:28:19"
+    },
+    {
+      "id": 13,
+      "name": "ささ小遣い",
+      "created_at": "2025-08-31 13:28:19"
+    }
+  ],
+  "wallet_categories": [
+    {
+      "id": 1,
+      "name": "三井住友銀行",
+      "balance": 771,
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 2,
+      "name": "埼玉りそな銀行",
+      "balance": 122844,
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 3,
+      "name": "楽天銀行",
+      "balance": 548089,
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 4,
+      "name": "楽天証券",
+      "balance": 415513,
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 5,
+      "name": "住信SBI証券",
+      "balance": 4855,
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 6,
+      "name": "現金たけ",
+      "balance": 40470,
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 7,
+      "name": "現金ささ",
+      "balance": 6607,
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 8,
+      "name": "Suicaたけ",
+      "balance": 4476,
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 9,
+      "name": "Suicaささ",
+      "balance": 6437,
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 10,
+      "name": "楽天Payたけ",
+      "balance": 2645,
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 11,
+      "name": "楽天Payささ",
+      "balance": 7384,
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 12,
+      "name": "家現金",
+      "balance": 218700,
+      "created_at": "2025-08-31 09:11:33"
+    }
+  ],
+  "credit_categories": [
+    {
+      "id": 1,
+      "name": "楽天カード",
+      "created_at": "2025-08-30 22:55:15"
+    },
+    {
+      "id": 2,
+      "name": "PayPay",
+      "created_at": "2025-08-30 22:55:15"
+    }
+  ],
+  "monthly_budgets": [
+    {
+      "id": 44,
+      "year": 2025,
+      "month": 9,
+      "expense_category_id": 11,
+      "budget_amount": 0,
+      "created_at": "2025-08-31 09:34:22"
+    },
+    {
+      "id": 45,
+      "year": 2025,
+      "month": 9,
+      "expense_category_id": 4,
+      "budget_amount": 66644,
+      "created_at": "2025-08-31 09:34:22"
+    },
+    {
+      "id": 46,
+      "year": 2025,
+      "month": 9,
+      "expense_category_id": 9,
+      "budget_amount": 45000,
+      "created_at": "2025-08-31 09:34:22"
+    },
+    {
+      "id": 47,
+      "year": 2025,
+      "month": 9,
+      "expense_category_id": 8,
+      "budget_amount": 10000,
+      "created_at": "2025-08-31 09:34:22"
+    },
+    {
+      "id": 48,
+      "year": 2025,
+      "month": 9,
+      "expense_category_id": 6,
+      "budget_amount": 20000,
+      "created_at": "2025-08-31 09:34:22"
+    },
+    {
+      "id": 50,
+      "year": 2025,
+      "month": 9,
+      "expense_category_id": 10,
+      "budget_amount": 0,
+      "created_at": "2025-08-31 09:34:22"
+    },
+    {
+      "id": 51,
+      "year": 2025,
+      "month": 9,
+      "expense_category_id": 2,
+      "budget_amount": 20000,
+      "created_at": "2025-08-31 09:34:22"
+    },
+    {
+      "id": 52,
+      "year": 2025,
+      "month": 9,
+      "expense_category_id": 7,
+      "budget_amount": 29000,
+      "created_at": "2025-08-31 09:34:22"
+    },
+    {
+      "id": 53,
+      "year": 2025,
+      "month": 9,
+      "expense_category_id": 1,
+      "budget_amount": 105400,
+      "created_at": "2025-08-31 09:34:22"
+    },
+    {
+      "id": 54,
+      "year": 2025,
+      "month": 9,
+      "expense_category_id": 3,
+      "budget_amount": 70000,
+      "created_at": "2025-08-31 09:34:22"
+    },
+    {
+      "id": 55,
+      "year": 2025,
+      "month": 9,
+      "expense_category_id": 12,
+      "budget_amount": 35000,
+      "created_at": "2025-08-31 13:28:19"
+    },
+    {
+      "id": 56,
+      "year": 2025,
+      "month": 9,
+      "expense_category_id": 13,
+      "budget_amount": 35000,
+      "created_at": "2025-08-31 13:28:19"
+    },
+    {
+      "id": 57,
+      "year": 2025,
+      "month": 10,
+      "expense_category_id": 1,
+      "budget_amount": 105400,
+      "created_at": "2025-09-01 14:01:30"
+    },
+    {
+      "id": 58,
+      "year": 2025,
+      "month": 10,
+      "expense_category_id": 2,
+      "budget_amount": 20000,
+      "created_at": "2025-09-01 14:01:30"
+    },
+    {
+      "id": 59,
+      "year": 2025,
+      "month": 10,
+      "expense_category_id": 3,
+      "budget_amount": 70000,
+      "created_at": "2025-09-01 14:01:30"
+    },
+    {
+      "id": 60,
+      "year": 2025,
+      "month": 10,
+      "expense_category_id": 4,
+      "budget_amount": 66644,
+      "created_at": "2025-09-01 14:01:30"
+    },
+    {
+      "id": 61,
+      "year": 2025,
+      "month": 10,
+      "expense_category_id": 6,
+      "budget_amount": 20000,
+      "created_at": "2025-09-01 14:01:30"
+    },
+    {
+      "id": 62,
+      "year": 2025,
+      "month": 10,
+      "expense_category_id": 7,
+      "budget_amount": 29000,
+      "created_at": "2025-09-01 14:01:30"
+    },
+    {
+      "id": 63,
+      "year": 2025,
+      "month": 10,
+      "expense_category_id": 8,
+      "budget_amount": 10000,
+      "created_at": "2025-09-01 14:01:30"
+    },
+    {
+      "id": 64,
+      "year": 2025,
+      "month": 10,
+      "expense_category_id": 9,
+      "budget_amount": 45000,
+      "created_at": "2025-09-01 14:01:30"
+    },
+    {
+      "id": 65,
+      "year": 2025,
+      "month": 10,
+      "expense_category_id": 10,
+      "budget_amount": 0,
+      "created_at": "2025-09-01 14:01:30"
+    },
+    {
+      "id": 66,
+      "year": 2025,
+      "month": 10,
+      "expense_category_id": 11,
+      "budget_amount": 0,
+      "created_at": "2025-09-01 14:01:30"
+    },
+    {
+      "id": 67,
+      "year": 2025,
+      "month": 10,
+      "expense_category_id": 12,
+      "budget_amount": 35000,
+      "created_at": "2025-09-01 14:01:30"
+    },
+    {
+      "id": 68,
+      "year": 2025,
+      "month": 10,
+      "expense_category_id": 13,
+      "budget_amount": 35000,
+      "created_at": "2025-09-01 14:01:30"
+    }
+  ],
+  "transactions": [
+    {
+      "id": 8,
+      "date": "2025-09-01",
+      "amount": 66644,
+      "type": "expense",
+      "expense_category_id": null,
+      "wallet_category_id": 3,
+      "credit_category_id": null,
+      "description": "振替出金: 住宅ローン振込",
+      "memo": "",
+      "created_at": "2025-08-31 11:28:48",
+      "updated_at": "2025-08-31 11:28:48",
+      "payment_location": "",
+      "notes": ""
+    },
+    {
+      "id": 9,
+      "date": "2025-09-01",
+      "amount": 66644,
+      "type": "income",
+      "expense_category_id": null,
+      "wallet_category_id": 5,
+      "credit_category_id": null,
+      "description": "振替入金: 住宅ローン振込",
+      "memo": "",
+      "created_at": "2025-08-31 11:28:48",
+      "updated_at": "2025-08-31 11:28:48",
+      "payment_location": "",
+      "notes": ""
+    },
+    {
+      "id": 11,
+      "date": "2025-09-01",
+      "amount": 66644,
+      "type": "expense",
+      "expense_category_id": 4,
+      "wallet_category_id": 5,
+      "credit_category_id": null,
+      "description": "住宅ローン支払い",
+      "memo": "",
+      "created_at": "2025-08-31 11:31:24",
+      "updated_at": "2025-08-31 11:31:24",
+      "payment_location": "",
+      "notes": ""
+    },
+    {
+      "id": 18,
+      "date": "2025-09-01",
+      "amount": 35000,
+      "type": "expense",
+      "expense_category_id": 12,
+      "wallet_category_id": null,
+      "credit_category_id": null,
+      "description": "予算残高手動調整 (2025年9月)",
+      "memo": "システムによる予算残高調整",
+      "created_at": "2025-08-31 13:35:10",
+      "updated_at": "2025-08-31 13:35:10",
+      "payment_location": "予算調整",
+      "notes": "手動調整: ¥-35,000"
+    },
+    {
+      "id": 19,
+      "date": "2025-09-01",
+      "amount": 20000,
+      "type": "expense",
+      "expense_category_id": 12,
+      "wallet_category_id": null,
+      "credit_category_id": null,
+      "description": "予算残高手動調整 (2025年9月)",
+      "memo": "システムによる予算残高調整",
+      "created_at": "2025-08-31 13:35:31",
+      "updated_at": "2025-08-31 13:35:31",
+      "payment_location": "予算調整",
+      "notes": "手動調整: ¥-20,000"
+    },
+    {
+      "id": 21,
+      "date": "2025-09-01",
+      "amount": 45000,
+      "type": "expense",
+      "expense_category_id": 13,
+      "wallet_category_id": null,
+      "credit_category_id": null,
+      "description": "予算残高手動調整 (2025年9月)",
+      "memo": "システムによる予算残高調整",
+      "created_at": "2025-09-01 13:49:25",
+      "updated_at": "2025-09-01 13:49:25",
+      "payment_location": "予算調整",
+      "notes": "手動調整: ¥-45,000"
+    },
+    {
+      "id": 22,
+      "date": "2025-09-01",
+      "amount": 368,
+      "type": "expense",
+      "expense_category_id": 1,
+      "wallet_category_id": 10,
+      "credit_category_id": null,
+      "description": "昼ごはん",
+      "memo": "",
+      "created_at": "2025-09-01 13:50:34",
+      "updated_at": "2025-09-01 13:50:34",
+      "payment_location": "ファミマ",
+      "notes": ""
+    },
+    {
+      "id": 23,
+      "date": "2025-09-01",
+      "amount": 750,
+      "type": "expense",
+      "expense_category_id": 1,
+      "wallet_category_id": null,
+      "credit_category_id": 2,
+      "description": "夕飯",
+      "memo": "",
+      "created_at": "2025-09-01 13:51:16",
+      "updated_at": "2025-09-01 13:51:16",
+      "payment_location": "日高屋",
+      "notes": ""
+    },
+    {
+      "id": 24,
+      "date": "2025-09-01",
+      "amount": 484,
+      "type": "expense",
+      "expense_category_id": 2,
+      "wallet_category_id": 9,
+      "credit_category_id": null,
+      "description": "交通費",
+      "memo": "",
+      "created_at": "2025-09-01 13:54:14",
+      "updated_at": "2025-09-01 13:54:14",
+      "payment_location": "駅",
+      "notes": ""
+    },
+    {
+      "id": 25,
+      "date": "2025-09-01",
+      "amount": 100,
+      "type": "expense",
+      "expense_category_id": 2,
+      "wallet_category_id": 9,
+      "credit_category_id": null,
+      "description": "自転車",
+      "memo": "",
+      "created_at": "2025-09-01 13:54:53",
+      "updated_at": "2025-09-01 14:04:00",
+      "payment_location": "駐輪場",
+      "notes": ""
+    },
+    {
+      "id": 26,
+      "date": "2025-09-01",
+      "amount": 92,
+      "type": "expense",
+      "expense_category_id": 1,
+      "wallet_category_id": 11,
+      "credit_category_id": null,
+      "description": "ドレッシングとおやつ",
+      "memo": "",
+      "created_at": "2025-09-01 13:56:02",
+      "updated_at": "2025-09-01 13:56:02",
+      "payment_location": "セブンイレブン",
+      "notes": ""
+    },
+    {
+      "id": 27,
+      "date": "2025-09-01",
+      "amount": 220,
+      "type": "expense",
+      "expense_category_id": 3,
+      "wallet_category_id": 11,
+      "credit_category_id": null,
+      "description": "お食事エプロン",
+      "memo": "",
+      "created_at": "2025-09-01 13:56:59",
+      "updated_at": "2025-09-01 13:56:59",
+      "payment_location": "ダイソー",
+      "notes": ""
+    },
+    {
+      "id": 28,
+      "date": "2025-09-01",
+      "amount": 445,
+      "type": "expense",
+      "expense_category_id": 3,
+      "wallet_category_id": 11,
+      "credit_category_id": null,
+      "description": "ゆき帽子",
+      "memo": "",
+      "created_at": "2025-09-01 13:57:51",
+      "updated_at": "2025-09-01 13:57:51",
+      "payment_location": "西松屋",
+      "notes": ""
+    },
+    {
+      "id": 29,
+      "date": "2025-09-01",
+      "amount": 386,
+      "type": "expense",
+      "expense_category_id": 1,
+      "wallet_category_id": 11,
+      "credit_category_id": null,
+      "description": "食パンとゆきパン",
+      "memo": "",
+      "created_at": "2025-09-01 13:59:00",
+      "updated_at": "2025-09-01 13:59:00",
+      "payment_location": "セキ薬品",
+      "notes": ""
+    },
+    {
+      "id": 30,
+      "date": "2025-09-01",
+      "amount": 2500,
+      "type": "expense",
+      "expense_category_id": 3,
+      "wallet_category_id": 12,
+      "credit_category_id": null,
+      "description": "保育園",
+      "memo": "",
+      "created_at": "2025-09-01 13:59:29",
+      "updated_at": "2025-09-01 13:59:29",
+      "payment_location": "まむろ",
+      "notes": ""
+    },
+    {
+      "id": 31,
+      "date": "2025-09-01",
+      "amount": 5250,
+      "type": "expense",
+      "expense_category_id": 12,
+      "wallet_category_id": null,
+      "credit_category_id": 1,
+      "description": "グラブル",
+      "memo": "",
+      "created_at": "2025-09-01 14:00:35",
+      "updated_at": "2025-09-01 14:00:35",
+      "payment_location": "",
+      "notes": ""
+    }
+  ],
+  "monthly_credit_summary": [
+    {
+      "id": 1,
+      "year": 2025,
+      "month": 8,
+      "credit_category_id": 1,
+      "total_amount": 0,
+      "created_at": "2025-08-31 06:17:24",
+      "updated_at": "2025-08-31 06:17:24"
+    },
+    {
+      "id": 2,
+      "year": 2025,
+      "month": 9,
+      "credit_category_id": 2,
+      "total_amount": 750,
+      "created_at": "2025-09-01 13:51:16",
+      "updated_at": "2025-09-01 13:51:16"
+    },
+    {
+      "id": 3,
+      "year": 2025,
+      "month": 9,
+      "credit_category_id": 1,
+      "total_amount": 5250,
+      "created_at": "2025-09-01 14:00:35",
+      "updated_at": "2025-09-01 14:00:35"
+    }
+  ]
+}

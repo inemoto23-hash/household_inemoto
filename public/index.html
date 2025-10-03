@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>家計簿システム</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>家計簿システム</h1>
+            <nav>
+                <button id="calendar-tab" class="nav-btn active">カレンダー</button>
+                <button id="input-tab" class="nav-btn">収支登録</button>
+                <button id="receipt-tab" class="nav-btn">レシート解析</button>
+                <button id="summary-tab" class="nav-btn">予算確認</button>
+                <button id="balance-tab" class="nav-btn">残高管理</button>
+                <button id="budget-tab" class="nav-btn">予算設定</button>
+                <button id="stats-tab" class="nav-btn">統計・グラフ</button>
+            </nav>
+        </header>
+
+        <main>
+            <!-- カレンダービュー -->
+            <div id="calendar-view" class="view active">
+                <div class="calendar-header">
+                    <button id="prev-month">&lt;</button>
+                    <h2 id="current-month"></h2>
+                    <button id="next-month">&gt;</button>
+                </div>
+                <div id="calendar-grid" class="calendar-grid"></div>
+                
+                <!-- 日付詳細ウィンドウ -->
+                <div id="day-detail" class="day-detail hidden">
+                    <div class="detail-header">
+                        <h3 id="selected-date"></h3>
+                        <button id="close-detail">&times;</button>
+                    </div>
+                    <div id="day-transactions" class="transactions-list"></div>
+                </div>
+            </div>
+
+            <!-- 入力ビュー -->
+            <div id="input-view" class="view">
+                <div class="form-container">
+                    <h2>収支登録</h2>
+                    <form id="transaction-form">
+                        <div class="form-group">
+                            <label for="transaction-date">日付</label>
+                            <input type="date" id="transaction-date" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="transaction-type">種別</label>
+                            <select id="transaction-type" required>
+                                <option value="expense">支出</option>
+                                <option value="income">収入</option>
+                                <option value="transfer">現金振替・引落</option>
+                                <option value="budget_transfer">予算振替</option>
+                                <option value="charge">チャージ</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="transaction-amount">金額</label>
+                            <input type="number" id="transaction-amount" min="0" step="0.01" required>
+                        </div>
+                        
+                        <div class="form-group" id="expense-category-group">
+                            <label for="expense-category">出費カテゴリ</label>
+                            <select id="expense-category"></select>
+                        </div>
+                        
+                        <div class="form-group" id="payment-method-group">
+                            <label>支払い方法</label>
+                            <div class="payment-method">
+                                <label><input type="radio" name="payment-method" value="wallet" checked> 財布</label>
+                                <label><input type="radio" name="payment-method" value="credit"> クレジットカード</label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" id="wallet-category-group">
+                            <label for="wallet-category">財布カテゴリ</label>
+                            <select id="wallet-category"></select>
+                        </div>
+                        
+                        <div class="form-group hidden" id="credit-category-group">
+                            <label for="credit-category">クレジットカード</label>
+                            <select id="credit-category"></select>
+                        </div>
+                        
+                        <!-- 現金振替・引落用のフィールド -->
+                        <div class="form-group hidden" id="transfer-from-group">
+                            <label for="transfer-from">現金振替・引落元財布</label>
+                            <select id="transfer-from"></select>
+                        </div>
+                        
+                        <div class="form-group hidden" id="transfer-to-group">
+                            <label for="transfer-to">現金振替・引落先財布</label>
+                            <select id="transfer-to"></select>
+                        </div>
+                        
+                        <!-- チャージ用のフィールド -->
+                        <div class="form-group hidden" id="charge-from-group">
+                            <label for="charge-from-source">チャージ元</label>
+                            <select id="charge-from-source"></select>
+                        </div>
+                        
+                        <div class="form-group hidden" id="charge-to-group">
+                            <label for="charge-to-wallet">チャージ先財布</label>
+                            <select id="charge-to-wallet"></select>
+                        </div>
+                        
+                        <!-- 予算振替用のフィールド -->
+                        <div class="form-group hidden" id="budget-from-group">
+                            <label for="budget-from-category">振替元予算カテゴリ</label>
+                            <select id="budget-from-category"></select>
+                        </div>
+                        
+                        <div class="form-group hidden" id="budget-to-group">
+                            <label for="budget-to-category">振替先予算カテゴリ</label>
+                            <select id="budget-to-category"></select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="transaction-description">説明</label>
+                            <input type="text" id="transaction-description">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="payment-location">決済場所</label>
+                            <input type="text" id="payment-location" placeholder="店舗名・場所を入力">
+                            <datalist id="payment-location-list"></datalist>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="transaction-notes">備考</label>
+                            <textarea id="transaction-notes" placeholder="その他のメモ・備考"></textarea>
+                        </div>
+                        
+                        <!-- 商品詳細入力エリア -->
+                        <div class="form-group" id="items-group">
+                            <label>商品詳細 <button type="button" id="add-item-btn" class="btn-secondary small">商品追加</button></label>
+                            <div id="items-container">
+                                <!-- 商品項目が動的に追加される -->
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="transaction-memo">メモ（旧形式・互換性用）</label>
+                            <textarea id="transaction-memo"></textarea>
+                        </div>
+                        
+                        <button type="submit" class="btn-primary">登録</button>
+                        <button type="button" id="undo-btn" class="btn-secondary">1つ戻る</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 予算設定ビュー -->
+            <div id="budget-view" class="view">
+                <div class="budget-container">
+                    <h2>予算設定</h2>
+                    <div class="budget-header">
+                        <select id="budget-year"></select>
+                        <select id="budget-month"></select>
+                        <button id="load-budget" class="btn-secondary">読み込み</button>
+                        <button id="copy-prev-budget" class="btn-secondary">前月引継ぎ</button>
+                    </div>
+                    
+                    <!-- 予算合計表示 -->
+                    <div class="total-summary-section">
+                        <h3>予算合計</h3>
+                        <div class="total-amount" id="budget-total">¥0</div>
+                    </div>
+                    
+                    <div id="budget-list" class="budget-list"></div>
+                    <button id="save-budget" class="btn-primary">保存</button>
+                </div>
+            </div>
+
+            <!-- レシート解析ビュー -->
+            <div id="receipt-view" class="view">
+                <div class="receipt-container">
+                    <h2>レシート解析</h2>
+                    <div class="upload-area" id="upload-area">
+                        <p>レシート画像をドロップするか、クリックして選択してください</p>
+                        <input type="file" id="receipt-file" accept="image/*" style="display:none;">
+                    </div>
+                    <div id="receipt-result" class="receipt-result hidden">
+                        <h3>解析結果</h3>
+                        <div id="receipt-data"></div>
+                        
+                        <!-- レシート項目詳細調整 -->
+                        <div id="receipt-items-section" class="receipt-items-section hidden">
+                            <h4>項目詳細調整</h4>
+                            <div id="receipt-items-list"></div>
+                            <div class="total-section">
+                                <strong>合計金額: <span id="receipt-total-amount">¥0</span></strong>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>支払い方法</label>
+                            <div class="payment-method">
+                                <label><input type="radio" name="receipt-payment-method" value="wallet" checked> 財布</label>
+                                <label><input type="radio" name="receipt-payment-method" value="credit"> クレジットカード</label>
+                            </div>
+                        </div>
+                        <div class="form-group" id="receipt-wallet-group">
+                            <label for="receipt-wallet-category">財布カテゴリ</label>
+                            <select id="receipt-wallet-category"></select>
+                        </div>
+                        <div class="form-group hidden" id="receipt-credit-group">
+                            <label for="receipt-credit-category">クレジットカード</label>
+                            <select id="receipt-credit-category"></select>
+                        </div>
+                        <button id="register-receipt" class="btn-primary">登録</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 集計ビュー -->
+            <div id="summary-view" class="view">
+                <div class="summary-container">
+                    <h2>予算確認</h2>
+                    <div class="summary-header">
+                        <select id="summary-year"></select>
+                        <select id="summary-month"></select>
+                        <button id="load-summary" class="btn-secondary">読み込み</button>
+                    </div>
+                    <div id="expense-summary" class="summary-section">
+                        <h3>出費カテゴリ別集計 
+                            <button id="adjust-budget-btn" class="btn-secondary small">予算残高調整</button>
+                        </h3>
+                        <div id="expense-summary-list"></div>
+                    </div>
+                    <div id="credit-summary" class="summary-section">
+                        <h3>クレジット使用額</h3>
+                        <!-- クレジット使用額合計 -->
+                        <div class="total-summary-section">
+                            <h4>クレジット使用額合計</h4>
+                            <div class="total-amount" id="credit-total">¥0</div>
+                        </div>
+                        <div id="credit-summary-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 残高管理ビュー -->
+            <div id="balance-view" class="view">
+                <div class="balance-container">
+                    <h2>残高管理</h2>
+                    
+                    <!-- 財布残高累計 -->
+                    <div class="total-summary-section">
+                        <h3>財布残高合計</h3>
+                        <div class="total-amount" id="wallet-total">¥0</div>
+                    </div>
+                    
+                    <div id="wallet-balances" class="balance-section">
+                        <h3>財布残高</h3>
+                        <div id="wallet-list"></div>
+                    </div>
+                    
+                    <!-- データバックアップセクション -->
+                    <div class="backup-section">
+                        <h3>データバックアップ</h3>
+                        <div class="backup-buttons">
+                            <button id="backup-sql-btn" class="btn-secondary">SQLファイルでダウンロード</button>
+                            <button id="backup-json-btn" class="btn-secondary">JSONファイルでダウンロード</button>
+                        </div>
+                        <p class="backup-info">
+                            <small>定期的にバックアップを取ることをお勧めします。<br>
+                            SQLファイル: データベース復元用、JSONファイル: 人間が読みやすい形式</small>
+                        </p>
+                    </div>
+                    
+                    <!-- データベース状態セクション -->
+                    <div class="database-status-section">
+                        <h3>データベース状態</h3>
+                        <div id="database-status" class="status-info">
+                            <button id="check-database-status" class="btn-secondary">状態確認</button>
+                            <div id="database-info" class="database-info hidden"></div>
+                        </div>
+                        <p class="status-info-text">
+                            <small>PostgreSQL接続でデータが永続化されます。SQLiteの場合はサーバー再起動でデータが消失します。</small>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 統計・グラフビュー -->
+            <div id="stats-view" class="view">
+                <div class="stats-container">
+                    <h2>統計・グラフ</h2>
+                    <div class="stats-header">
+                        <select id="stats-year"></select>
+                        <select id="stats-month"></select>
+                        <button id="update-stats" class="btn-secondary">更新</button>
+                    </div>
+                    
+                    <!-- サマリー情報 -->
+                    <div class="stats-summary">
+                        <div class="summary-card">
+                            <h3>収入</h3>
+                            <div id="total-income" class="amount positive">¥0</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>支出</h3>
+                            <div id="total-expense" class="amount negative">¥0</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>収支</h3>
+                            <div id="net-income" class="amount">¥0</div>
+                        </div>
+                    </div>
+                    
+                    <!-- グラフエリア -->
+                    <div class="charts-container">
+                        <div class="chart-section">
+                            <h3>月別収支推移</h3>
+                            <canvas id="monthly-chart"></canvas>
+                        </div>
+                        
+                        <div class="chart-section">
+                            <h3>カテゴリ別支出</h3>
+                            <canvas id="category-chart"></canvas>
+                        </div>
+                        
+                        <div class="chart-section">
+                            <h3>財布別収支</h3>
+                            <canvas id="wallet-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- レシート詳細モーダル -->
+    <div id="receipt-details-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>レシート詳細</h3>
+                <button id="close-receipt-details-modal" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="receipt-details-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 予算残高調整モーダル -->
+    <div id="budget-adjustment-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>予算残高調整</h3>
+                <button id="close-adjustment-modal" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>実際の残高と計算上の残高にずれがある場合、手動で調整できます。</p>
+                <div id="budget-adjustment-list"></div>
+            </div>
+            <div class="modal-footer">
+                <button id="save-adjustments" class="btn-primary">調整を保存</button>
+                <button id="cancel-adjustments" class="btn-secondary">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 詳細取引表示モーダル -->
+    <div id="transaction-details-modal" class="modal hidden">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3 id="transaction-details-title">取引詳細</h3>
+                <button id="close-transaction-details-modal" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="transaction-details-content">
+                    <div class="details-summary">
+                        <div class="summary-info"></div>
+                    </div>
+                    <div class="details-transactions">
+                        <h4>取引一覧</h4>
+                        <div id="transaction-details-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/default-settings.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

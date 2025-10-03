@@ -1,0 +1,1842 @@
+/* リセット */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f5f5f5;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: white;
+    min-height: 100vh;
+}
+
+/* ヘッダー */
+header {
+    background: #2c3e50;
+    color: white;
+    padding: 1rem;
+}
+
+header h1 {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+nav {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.nav-btn {
+    background: transparent;
+    border: 2px solid white;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.nav-btn:hover, .nav-btn.active {
+    background: white;
+    color: #2c3e50;
+}
+
+/* メイン */
+main {
+    padding: 2rem;
+}
+
+.view {
+    display: none;
+}
+
+.view.active {
+    display: block;
+}
+
+/* カレンダービュー */
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.calendar-header button {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1.2rem;
+}
+
+.calendar-header button:hover {
+    background: #2980b9;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: #ddd;
+    border: 1px solid #ddd;
+}
+
+.calendar-day {
+    background: white;
+    padding: 0.5rem;
+    min-height: 80px;
+    cursor: pointer;
+    position: relative;
+}
+
+.calendar-day:hover {
+    background: #f8f9fa;
+}
+
+.calendar-day.other-month {
+    color: #ccc;
+    background: #f8f9fa;
+}
+
+.calendar-day.selected {
+    background: #e3f2fd;
+}
+
+.calendar-day .date {
+    font-weight: bold;
+    margin-bottom: 0.25rem;
+}
+
+.calendar-day .transaction-count {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.day-detail {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1.5rem;
+    max-width: 500px;
+    width: 90%;
+    max-height: 70vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+}
+
+.detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 1rem;
+}
+
+.detail-header button {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #999;
+}
+
+.detail-header button:hover {
+    color: #666;
+}
+
+.transactions-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.transaction-item {
+    padding: 0.75rem;
+    border: 1px solid #eee;
+    border-radius: 5px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+}
+
+.transaction-item.expense {
+    border-left: 4px solid #e74c3c;
+}
+
+.transaction-item.income {
+    border-left: 4px solid #27ae60;
+}
+
+.transaction-info {
+    flex: 1;
+}
+
+.transaction-amount {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.transaction-amount.expense {
+    color: #e74c3c;
+}
+
+.transaction-amount.income {
+    color: #27ae60;
+}
+
+.transaction-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: 1rem;
+}
+
+.edit-btn, .delete-btn, .receipt-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    font-size: 1rem;
+    transition: background-color 0.2s;
+}
+
+.edit-btn:hover {
+    background: #f0f8ff;
+}
+
+.delete-btn:hover {
+    background: #ffe6e6;
+}
+
+.receipt-btn:hover {
+    background: #f0f0f0;
+}
+
+/* フォーム */
+.form-container, .budget-container, .receipt-container, .summary-container, .balance-container {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+}
+
+.form-group input, .form-group select, .form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.form-group textarea {
+    height: 100px;
+    resize: vertical;
+}
+
+.payment-method {
+    display: flex;
+    gap: 1rem;
+}
+
+.payment-method label {
+    display: flex;
+    align-items: center;
+    font-weight: normal;
+}
+
+.payment-method input {
+    width: auto;
+    margin-right: 0.5rem;
+}
+
+/* ボタン */
+.btn-primary, .btn-secondary {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    margin-right: 0.5rem;
+}
+
+.btn-primary {
+    background: #27ae60;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #229954;
+}
+
+.btn-secondary {
+    background: #95a5a6;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #7f8c8d;
+}
+
+/* 予算管理 */
+.budget-header {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    align-items: center;
+}
+
+.budget-header select {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+.budget-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    border: 1px solid #eee;
+    border-radius: 5px;
+}
+
+.budget-item label {
+    flex: 1;
+    font-weight: bold;
+}
+
+.budget-item input {
+    width: 150px;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+/* レシート解析 */
+.upload-area {
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    padding: 3rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.3s;
+}
+
+.upload-area:hover, .upload-area.dragover {
+    border-color: #3498db;
+    background: #f8f9fa;
+}
+
+.receipt-result {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    border: 1px solid #eee;
+    border-radius: 8px;
+}
+
+.receipt-data {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 5px;
+    margin-bottom: 1rem;
+}
+
+/* レシート項目詳細調整 */
+.receipt-items-section {
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: #f8f9fa;
+}
+
+/* モバイル用ラベル */
+.mobile-label {
+    display: none;
+    font-weight: bold;
+    color: #495057;
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.receipt-items-section h4 {
+    margin: 0 0 1rem 0;
+    color: #495057;
+}
+
+.receipt-item-row {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    padding: 0.75rem;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    background: white;
+}
+
+.receipt-item-row .item-name {
+    flex: 2;
+    min-width: 0;
+}
+
+.receipt-item-row .item-name input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+.receipt-item-row .item-amount {
+    flex: 1;
+    max-width: 120px;
+}
+
+.receipt-item-row .item-amount input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    text-align: right;
+}
+
+.receipt-item-row .item-category {
+    flex: 1.5;
+}
+
+.receipt-item-row .item-category select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+.receipt-item-row .remove-item {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 0.5rem;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.receipt-item-row .remove-item:hover {
+    background: #c0392b;
+}
+
+.total-section {
+    text-align: right;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 2px solid #dee2e6;
+    font-size: 1.1rem;
+}
+
+/* 集計 */
+.summary-header {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    align-items: center;
+}
+
+.summary-header select {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+.summary-section {
+    margin-bottom: 2rem;
+}
+
+.summary-section h3 {
+    margin-bottom: 1rem;
+    color: #2c3e50;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 0.5rem;
+}
+
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border: 2px solid #eee;
+    border-radius: 8px;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+}
+
+.summary-item:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transform: translateY(-1px);
+}
+
+.summary-item.overspent {
+    border-color: #e74c3c;
+    background-color: #fef2f2;
+}
+
+.summary-item.warning {
+    border-color: #f39c12;
+    background-color: #fefbf2;
+}
+
+.summary-item.normal {
+    border-color: #27ae60;
+    background-color: #f2fef5;
+}
+
+.summary-item .category {
+    font-weight: bold;
+}
+
+.summary-item .amounts {
+    text-align: right;
+}
+
+.summary-item .budget {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.summary-item .remaining {
+    font-weight: bold;
+}
+
+.summary-item .remaining.positive {
+    color: #27ae60;
+}
+
+.summary-item .remaining.negative {
+    color: #e74c3c;
+}
+
+/* 予算使用率プログレスバー */
+.budget-progress {
+    margin-top: 0.5rem;
+    width: 100%;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+    color: #666;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: #28a745;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.progress-fill.warning {
+    background-color: #ffc107;
+}
+
+.progress-fill.danger {
+    background-color: #dc3545;
+}
+
+/* 日割り予算情報 */
+.daily-budget-info {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: #495057;
+}
+
+.daily-budget-info .daily-amount {
+    font-weight: bold;
+    color: #28a745;
+}
+
+.daily-budget-info .days-left {
+    color: #6c757d;
+}
+
+/* 使いすぎ警告表示 */
+.overspending-alert {
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    border-radius: 6px;
+    font-weight: bold;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.overspending-alert.danger {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+.overspending-alert.warning {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+}
+
+.overspending-alert.normal {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
+.spending-ratio {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 0.25rem;
+}
+
+.ratio-bar {
+    width: 100%;
+    height: 6px;
+    background-color: #e9ecef;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+}
+
+.ratio-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+    border-radius: 3px;
+}
+
+.ratio-fill.normal {
+    background-color: #28a745;
+}
+
+.ratio-fill.warning {
+    background-color: #ffc107;
+}
+
+.ratio-fill.danger {
+    background-color: #dc3545;
+}
+
+/* 残高管理 */
+.balance-section h3 {
+    margin-bottom: 1rem;
+    color: #2c3e50;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 0.5rem;
+}
+
+/* ドラッグ&ドロップ用スタイル */
+.wallet-item, .budget-item, .summary-item {
+    cursor: grab;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.wallet-item:hover, .budget-item:hover, .summary-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.wallet-item.dragging, .budget-item.dragging, .summary-item.dragging {
+    cursor: grabbing;
+    opacity: 0.5;
+    transform: rotate(3deg);
+}
+
+.wallet-item.drag-over, .budget-item.drag-over, .summary-item.drag-over {
+    border-top: 3px solid #3498db;
+    margin-top: 3px;
+}
+
+/* カレンダー詳細の財布サマリー */
+.wallet-summary {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    border: 1px solid #dee2e6;
+}
+
+.wallet-summary h4 {
+    margin: 0 0 0.5rem 0;
+    color: #495057;
+    font-size: 1rem;
+}
+
+.wallet-summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.wallet-summary-item:last-child {
+    border-bottom: none;
+}
+
+.wallet-name {
+    font-weight: bold;
+    color: #495057;
+}
+
+.wallet-amounts {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.wallet-amounts .positive {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.wallet-amounts .negative {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+/* 取引アイテムの詳細情報表示 */
+.transaction-description {
+    font-weight: bold;
+    margin-bottom: 0.25rem;
+}
+
+.payment-info {
+    font-size: 0.85rem;
+    color: #007bff;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+    background-color: rgba(0, 123, 255, 0.1);
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    display: inline-block;
+}
+
+.transaction-memo {
+    font-size: 0.9rem;
+    color: #666;
+    font-style: italic;
+    margin-bottom: 0.25rem;
+}
+
+.payment-location {
+    font-size: 0.8rem;
+    color: #999;
+    margin-bottom: 0.25rem;
+}
+
+/* 累計表示セクション */
+.total-summary-section {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 2px solid #dee2e6;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.total-summary-section h3, .total-summary-section h4 {
+    margin: 0 0 1rem 0;
+    color: #495057;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.total-amount {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #28a745;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+    padding: 0.5rem;
+    border-radius: 5px;
+    background: rgba(255,255,255,0.8);
+    display: inline-block;
+    min-width: 200px;
+}
+
+.wallet-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    border: 1px solid #eee;
+    border-radius: 5px;
+}
+
+.wallet-item label {
+    flex: 1;
+    font-weight: bold;
+}
+
+.wallet-item input {
+    width: 150px;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+.wallet-item .current-balance {
+    min-width: 100px;
+    text-align: right;
+    font-weight: bold;
+}
+
+/* 商品詳細入力 */
+.item-row {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    border: 1px solid #eee;
+    border-radius: 5px;
+    background: #f9f9f9;
+}
+
+.item-row input, .item-row select {
+    flex: 1;
+    min-width: 0;
+    padding: 0.4rem;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+}
+
+.item-row .item-name {
+    flex: 2;
+}
+
+.item-row .item-amount {
+    flex: 1;
+    max-width: 120px;
+}
+
+.item-row .item-category {
+    flex: 1.5;
+}
+
+.item-row .remove-item {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 0.4rem 0.8rem;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.item-row .remove-item:hover {
+    background: #c0392b;
+}
+
+.btn-secondary.small {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+    margin-left: 0.5rem;
+}
+
+.payment-location-suggestions {
+    position: absolute;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 100;
+    width: 100%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.payment-location-suggestion {
+    padding: 0.5rem;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+}
+
+.payment-location-suggestion:hover {
+    background: #f5f5f5;
+}
+
+.payment-location-suggestion:last-child {
+    border-bottom: none;
+}
+
+/* モーダルウィンドウ */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modal-content.large {
+    max-width: 95%;
+    width: 800px;
+    max-height: 90vh;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #eee;
+    background: #f8f9fa;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #2c3e50;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #999;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-btn:hover {
+    color: #666;
+    background: #eee;
+    border-radius: 50%;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+.modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+}
+
+/* 予算調整用 */
+.adjustment-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    border: 1px solid #eee;
+    border-radius: 5px;
+    background: #f9f9f9;
+}
+
+.adjustment-item label {
+    flex: 1;
+    font-weight: bold;
+    margin: 0;
+}
+
+.adjustment-item .current-balance {
+    min-width: 120px;
+    text-align: right;
+    color: #666;
+}
+
+.adjustment-item input {
+    width: 120px;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+}
+
+.adjustment-item .difference {
+    min-width: 100px;
+    text-align: right;
+    font-weight: bold;
+}
+
+.adjustment-item .difference.positive {
+    color: #27ae60;
+}
+
+.adjustment-item .difference.negative {
+    color: #e74c3c;
+}
+
+/* レシート詳細表示 */
+.receipt-detail-info {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 5px;
+}
+
+.receipt-detail-info h4 {
+    margin: 0 0 0.5rem 0;
+    color: #2c3e50;
+}
+
+.receipt-detail-info p {
+    margin: 0.25rem 0;
+    font-size: 0.9rem;
+}
+
+.receipt-items-detail h5 {
+    margin: 0 0 1rem 0;
+    color: #2c3e50;
+}
+
+.receipt-items-table {
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.receipt-items-header {
+    display: grid;
+    grid-template-columns: 2fr 1.5fr 1fr;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: #6c757d;
+    color: white;
+    font-weight: bold;
+}
+
+.receipt-items-row {
+    display: grid;
+    grid-template-columns: 2fr 1.5fr 1fr;
+    gap: 1rem;
+    padding: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+    background: white;
+}
+
+.receipt-items-row:nth-child(even) {
+    background: #f8f9fa;
+}
+
+.receipt-items-total {
+    display: grid;
+    grid-template-columns: 2fr 1.5fr 1fr;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: #e9ecef;
+    font-weight: bold;
+    border-top: 2px solid #6c757d;
+}
+
+.item-name-cell {
+    text-align: left;
+}
+
+.item-category-cell {
+    text-align: center;
+    color: #6c757d;
+}
+
+.item-amount-cell {
+    text-align: right;
+    font-family: 'Courier New', monospace;
+}
+
+/* ユーティリティ */
+.hidden {
+    display: none !important;
+}
+
+/* レスポンシブデザイン */
+@media (max-width: 768px) {
+    .container {
+        margin: 0;
+        border-radius: 0;
+    }
+
+    main {
+        padding: 1rem;
+    }
+
+    nav {
+        gap: 0.25rem;
+    }
+
+    .nav-btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.9rem;
+    }
+
+    .calendar-grid {
+        font-size: 0.9rem;
+    }
+
+    .calendar-day {
+        min-height: 60px;
+        padding: 0.25rem;
+    }
+
+    .day-detail {
+        width: 95%;
+        padding: 1rem;
+    }
+
+    .form-container, .budget-container, .receipt-container, .summary-container, .balance-container {
+        max-width: 100%;
+    }
+
+    .budget-header, .summary-header {
+        flex-direction: column;
+    }
+
+    .budget-header select, .summary-header select {
+        width: 100%;
+    }
+
+    .budget-item, .wallet-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+
+    .budget-item input, .wallet-item input {
+        width: 100%;
+    }
+
+    .summary-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+
+    .summary-item .amounts {
+        text-align: left;
+    }
+    
+    /* レシート画面のモバイル対応 */
+    .mobile-label {
+        display: block !important;
+    }
+    
+    .receipt-item-row {
+        flex-direction: column;
+        gap: 0.75rem;
+        padding: 1rem;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .receipt-item-row .item-name,
+    .receipt-item-row .item-amount,
+    .receipt-item-row .item-category {
+        flex: none;
+        max-width: none;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .receipt-item-row .item-name input,
+    .receipt-item-row .item-amount input,
+    .receipt-item-row .item-category select {
+        font-size: 16px; /* iOS Safari zoom prevention */
+        padding: 0.75rem;
+        border: 2px solid #dee2e6;
+        border-radius: 5px;
+        background: white;
+    }
+    
+    .receipt-item-row .item-name input:focus,
+    .receipt-item-row .item-amount input:focus,
+    .receipt-item-row .item-category select:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        outline: none;
+    }
+    
+    .receipt-item-row .remove-item {
+        background: #dc3545;
+        color: white;
+        padding: 0.75rem;
+        font-size: 1rem;
+        border-radius: 5px;
+        margin-top: 0.5rem;
+        border: none;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .receipt-item-row .remove-item:hover {
+        background: #c82333;
+    }
+    
+    .receipt-items-section {
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+    }
+    
+    .receipt-items-section h4 {
+        font-size: 1.1rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .total-section {
+        font-size: 1.2rem;
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #e9ecef;
+        border-radius: 5px;
+        text-align: center;
+        border: 2px solid #6c757d;
+    }
+    
+    /* レシート詳細モーダルのモバイル対応 */
+    .receipt-items-table {
+        overflow-x: auto;
+    }
+    
+    .receipt-items-header,
+    .receipt-items-row,
+    .receipt-items-total {
+        grid-template-columns: 1fr;
+        gap: 0.25rem;
+        padding: 0.5rem;
+        text-align: left;
+    }
+    
+    .receipt-items-header {
+        display: none; /* モバイルではヘッダー非表示 */
+    }
+    
+    .receipt-items-row {
+        border-bottom: 1px solid #dee2e6;
+        margin-bottom: 0.5rem;
+        padding: 0.75rem;
+        border-radius: 5px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .receipt-items-row::before {
+        content: "商品 " counter(item-counter);
+        counter-increment: item-counter;
+        font-weight: bold;
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+        display: block;
+    }
+    
+    .item-name-cell::before {
+        content: "商品名: ";
+        font-weight: bold;
+        color: #6c757d;
+    }
+    
+    .item-category-cell::before {
+        content: "カテゴリ: ";
+        font-weight: bold;
+        color: #6c757d;
+    }
+    
+    .item-amount-cell::before {
+        content: "金額: ";
+        font-weight: bold;
+        color: #6c757d;
+    }
+    
+    .receipt-detail-info p {
+        font-size: 1rem;
+        margin: 0.5rem 0;
+    }
+}
+
+@media (max-width: 480px) {
+    header {
+        padding: 0.75rem;
+    }
+
+    header h1 {
+        font-size: 1.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .nav-btn {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.8rem;
+    }
+
+    .calendar-day {
+        min-height: 50px;
+        font-size: 0.8rem;
+    }
+
+    .form-group input, .form-group select, .form-group textarea {
+        padding: 0.6rem;
+    }
+
+    .btn-primary, .btn-secondary {
+        padding: 0.6rem 1rem;
+        font-size: 0.9rem;
+    }
+    
+    /* 超小画面でのレシート調整 */
+    .receipt-item-row {
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .receipt-item-row .remove-item {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+        width: 100%;
+    }
+    
+    .receipt-items-section h4 {
+        font-size: 1rem;
+    }
+    
+    .total-section {
+        font-size: 0.95rem;
+        padding: 0.5rem;
+    }
+    
+    .receipt-detail-info h4 {
+        font-size: 1.1rem;
+    }
+    
+    .receipt-detail-info p {
+        font-size: 0.9rem;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 1rem auto;
+    }
+}
+
+/* バックアップセクション */
+.backup-section {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 1px solid #e9ecef;
+}
+
+.backup-section h3 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+}
+
+.backup-section h3::before {
+    content: '💾';
+    margin-right: 0.5rem;
+}
+
+.backup-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.backup-buttons button {
+    flex: 1;
+    min-width: 200px;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.backup-buttons button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+}
+
+.backup-buttons button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.backup-info {
+    color: #6c757d;
+    font-style: italic;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.backup-info small {
+    font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+    .backup-buttons {
+        flex-direction: column;
+    }
+    
+    .backup-buttons button {
+        min-width: auto;
+    }
+}
+
+/* データベース状態セクション */
+.database-status-section {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 1px solid #e9ecef;
+}
+
+.database-status-section h3 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+}
+
+.database-status-section h3::before {
+    content: '🔍';
+    margin-right: 0.5rem;
+}
+
+.database-info {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+.status-item:last-child {
+    border-bottom: none;
+}
+
+.status-value.postgresql {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.status-value.sqlite {
+    color: #ffc107;
+    font-weight: bold;
+}
+
+.status-value.connected {
+    color: #28a745;
+}
+
+.status-value.disconnected {
+    color: #dc3545;
+}
+
+.status-value.configured {
+    color: #28a745;
+}
+
+.status-value.not-configured {
+    color: #ffc107;
+}
+
+.warning {
+    padding: 0.75rem;
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 6px;
+    margin-top: 1rem;
+    color: #856404;
+}
+
+.success {
+    padding: 0.75rem;
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    border-radius: 6px;
+    margin-top: 1rem;
+    color: #155724;
+}
+
+.error {
+    padding: 0.75rem;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 6px;
+    margin-top: 1rem;
+    color: #721c24;
+}
+
+.status-info-text {
+    color: #6c757d;
+    font-style: italic;
+    margin: 1rem 0 0 0;
+    line-height: 1.4;
+}
+
+/* 詳細取引表示用のスタイル */
+.clickable {
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.clickable:hover {
+    color: #3498db;
+    background-color: #f8f9fa;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.details-summary {
+    margin-bottom: 2rem;
+}
+
+.summary-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-item .label {
+    display: block;
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.stat-item .value {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.stat-item .value.income {
+    color: #27ae60;
+}
+
+.stat-item .value.expense {
+    color: #e74c3c;
+}
+
+.details-transactions h4 {
+    margin-bottom: 1rem;
+    color: #2c3e50;
+}
+
+.transaction-detail-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    background: white;
+}
+
+.transaction-info {
+    flex: 1;
+}
+
+.transaction-date {
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 0.25rem;
+}
+
+.transaction-description {
+    font-size: 1.1rem;
+    margin-bottom: 0.25rem;
+}
+
+.transaction-details {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.transaction-details .category {
+    background: #3498db;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 12px;
+    margin-right: 0.5rem;
+    font-size: 0.8rem;
+}
+
+.transaction-details .payment-location {
+    margin-right: 0.5rem;
+}
+
+.transaction-details .memo {
+    font-style: italic;
+}
+
+.transaction-amount {
+    text-align: right;
+    margin-right: 1rem;
+}
+
+.transaction-amount .amount {
+    font-size: 1.2rem;
+    font-weight: bold;
+    margin-bottom: 0.25rem;
+}
+
+.transaction-amount .amount.income {
+    color: #27ae60;
+}
+
+.transaction-amount .amount.expense {
+    color: #e74c3c;
+}
+
+.transaction-amount .payment-method {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.transaction-amount .transaction-type {
+    font-size: 0.8rem;
+    color: #888;
+}
+
+.transaction-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.btn-small {
+    padding: 0.25rem 0.5rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    background: #3498db;
+    color: white;
+    transition: background 0.2s;
+}
+
+.btn-small:hover {
+    background: #2980b9;
+}
+
+.btn-small.delete {
+    background: #e74c3c;
+}
+
+.btn-small.delete:hover {
+    background: #c0392b;
+}
+
+.no-transactions {
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    padding: 2rem;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+    .transaction-detail-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+    
+    .transaction-amount {
+        text-align: left;
+        margin-right: 0;
+    }
+    
+    .transaction-actions {
+        flex-direction: row;
+        justify-content: flex-end;
+    }
+    
+    .summary-stats {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* 統計・グラフビュー */
+.stats-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.stats-header {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.stats-header select {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.stats-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.summary-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.summary-card h3 {
+    font-size: 1rem;
+    color: #666;
+    margin-bottom: 0.5rem;
+}
+
+.summary-card .amount {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #333;
+}
+
+.summary-card .amount.positive {
+    color: #27ae60;
+}
+
+.summary-card .amount.negative {
+    color: #e74c3c;
+}
+
+.charts-container {
+    display: grid;
+    gap: 2rem;
+}
+
+.chart-section {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.chart-section h3 {
+    margin-bottom: 1rem;
+    color: #333;
+    font-size: 1.1rem;
+}
+
+.chart-section canvas {
+    max-height: 400px;
+}
+
+@media (max-width: 768px) {
+    .stats-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .stats-summary {
+        grid-template-columns: 1fr;
+    }
+    
+    .summary-card .amount {
+        font-size: 1.2rem;
+    }
+    
+    .chart-section canvas {
+        max-height: 300px;
+    }
+}
