@@ -183,17 +183,15 @@ async function populateSelects(targetYear = null, targetMonth = null) {
     const expenseSelect = document.getElementById('expense-category');
     const walletSelect = document.getElementById('wallet-category');
     const creditSelect = document.getElementById('credit-category');
-    const receiptWalletSelect = document.getElementById('receipt-wallet-category');
-    const receiptCreditSelect = document.getElementById('receipt-credit-category');
     const transferFromSelect = document.getElementById('transfer-from');
     const transferToSelect = document.getElementById('transfer-to');
     const chargeFromSourceSelect = document.getElementById('charge-from-source');
     const chargeToWalletSelect = document.getElementById('charge-to-wallet');
     const budgetFromCategorySelect = document.getElementById('budget-from-category');
     const budgetToCategorySelect = document.getElementById('budget-to-category');
-    
+
     // 既存の選択肢をクリア
-    [expenseSelect, walletSelect, creditSelect, receiptWalletSelect, receiptCreditSelect, transferFromSelect, transferToSelect, chargeFromSourceSelect, chargeToWalletSelect, budgetFromCategorySelect, budgetToCategorySelect].forEach(select => {
+    [expenseSelect, walletSelect, creditSelect, transferFromSelect, transferToSelect, chargeFromSourceSelect, chargeToWalletSelect, budgetFromCategorySelect, budgetToCategorySelect].forEach(select => {
         if (select) select.innerHTML = '';
     });
     
@@ -256,7 +254,7 @@ async function populateSelects(targetYear = null, targetMonth = null) {
     
     // 財布カテゴリ（残高管理と同じ並び順）
     const sortedWalletCategories = loadItemOrder('#wallet-list', walletCategories, 'wallet.id');
-    [walletSelect, receiptWalletSelect, transferFromSelect, chargeToWalletSelect].forEach(select => {
+    [walletSelect, transferFromSelect, chargeToWalletSelect].forEach(select => {
         if (select) {
             sortedWalletCategories.forEach(wallet => {
                 const option = new Option(`${wallet.name} (¥${wallet.balance?.toLocaleString() || 0})`, wallet.id);
@@ -293,7 +291,7 @@ async function populateSelects(targetYear = null, targetMonth = null) {
     }
 
     // クレジットカードカテゴリ
-    [creditSelect, receiptCreditSelect].forEach(select => {
+    [creditSelect].forEach(select => {
         if (select) {
             creditCategories.forEach(credit => {
                 const option = new Option(credit.name, credit.id);
