@@ -119,19 +119,28 @@ class Database {
         // PostgreSQLの場合は外部キー制約を追加
         if (this.type === 'postgresql') {
             const foreignKeys = [
-                'ALTER TABLE transactions ADD CONSTRAINT IF NOT EXISTS fk_transactions_expense FOREIGN KEY (expense_category_id) REFERENCES expense_categories(id)',
-                'ALTER TABLE transactions ADD CONSTRAINT IF NOT EXISTS fk_transactions_wallet FOREIGN KEY (wallet_category_id) REFERENCES wallet_categories(id)', 
-                'ALTER TABLE transactions ADD CONSTRAINT IF NOT EXISTS fk_transactions_credit FOREIGN KEY (credit_category_id) REFERENCES credit_categories(id)',
-                'ALTER TABLE monthly_budgets ADD CONSTRAINT IF NOT EXISTS fk_budgets_expense FOREIGN KEY (expense_category_id) REFERENCES expense_categories(id)',
-                'ALTER TABLE monthly_credit_summary ADD CONSTRAINT IF NOT EXISTS fk_credit_summary_credit FOREIGN KEY (credit_category_id) REFERENCES credit_categories(id)'
+                { name: 'fk_transactions_expense', sql: 'ALTER TABLE transactions ADD CONSTRAINT fk_transactions_expense FOREIGN KEY (expense_category_id) REFERENCES expense_categories(id)' },
+                { name: 'fk_transactions_wallet', sql: 'ALTER TABLE transactions ADD CONSTRAINT fk_transactions_wallet FOREIGN KEY (wallet_category_id) REFERENCES wallet_categories(id)' },
+                { name: 'fk_transactions_credit', sql: 'ALTER TABLE transactions ADD CONSTRAINT fk_transactions_credit FOREIGN KEY (credit_category_id) REFERENCES credit_categories(id)' },
+                { name: 'fk_budgets_expense', sql: 'ALTER TABLE monthly_budgets ADD CONSTRAINT fk_budgets_expense FOREIGN KEY (expense_category_id) REFERENCES expense_categories(id)' },
+                { name: 'fk_credit_summary_credit', sql: 'ALTER TABLE monthly_credit_summary ADD CONSTRAINT fk_credit_summary_credit FOREIGN KEY (credit_category_id) REFERENCES credit_categories(id)' }
             ];
-            
+
             for (const fk of foreignKeys) {
                 try {
-                    await this.run(fk);
+                    // 制約が既に存在するかチェック
+                    const exists = await this.get(
+                        `SELECT constraint_name FROM information_schema.table_constraints
+                         WHERE constraint_name = $1`,
+                        [fk.name]
+                    );
+
+                    if (!exists) {
+                        await this.run(fk.sql);
+                    }
                 } catch (error) {
                     // 制約が既に存在する場合のエラーは無視
-                    if (!error.message.includes('already exists')) {
+                    if (!error.message.includes('already exists') && !error.message.includes('duplicate key')) {
                         console.warn('外部キー制約追加警告:', error.message);
                     }
                 }
