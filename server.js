@@ -9,6 +9,31 @@ const { seedDatabase } = require('./database/seed');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// SQLヘルパー関数: データベースタイプに応じたSQL関数を返す
+function getYearMonthFormat(columnName) {
+    return db.type === 'postgresql'
+        ? `TO_CHAR(${columnName}, 'YYYY-MM')`
+        : `strftime('%Y-%m', ${columnName})`;
+}
+
+function getYearFormat(columnName) {
+    return db.type === 'postgresql'
+        ? `EXTRACT(YEAR FROM ${columnName})::text`
+        : `strftime('%Y', ${columnName})`;
+}
+
+function getMonthFormat(columnName) {
+    return db.type === 'postgresql'
+        ? `LPAD(EXTRACT(MONTH FROM ${columnName})::text, 2, '0')`
+        : `strftime('%m', ${columnName})`;
+}
+
+function getDateOnly(columnName) {
+    return db.type === 'postgresql'
+        ? `${columnName}::date`
+        : `date(${columnName})`;
+}
+
 // データベース初期化の確認と実行
 async function initializeDatabase() {
     try {
@@ -383,10 +408,10 @@ app.get('/api/transactions', async (req, res) => {
         let params = [];
 
         if (date) {
-            query += ' WHERE DATE(t.date) = ?';
+            query += ` WHERE ${getDateOnly('t.date')} = ${db.type === 'postgresql' ? '$1::date' : '?'}`;
             params.push(date);
         } else if (month) {
-            query += ' WHERE strftime("%Y-%m", t.date) = ?';
+            query += ` WHERE ${getYearMonthFormat('t.date')} = ${db.type === 'postgresql' ? '$1' : '?'}`;
             params.push(month);
         }
 
@@ -527,8 +552,8 @@ app.post('/api/transactions', async (req, res) => {
                          (COALESCE(SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END), 0) -
                           COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END), 0))) as remaining
                  FROM expense_categories ec
-                 LEFT JOIN transactions t ON ec.id = t.expense_category_id 
-                     AND t.type IN ('expense', 'income') AND strftime('%Y-%m', t.date) = ?
+                 LEFT JOIN transactions t ON ec.id = t.expense_category_id
+                     AND t.type IN ('expense', 'income') AND ${getYearMonthFormat('t.date')} = ${db.type === 'postgresql' ? '$1' : '?'}
                  LEFT JOIN monthly_budgets mb ON ec.id = mb.expense_category_id 
                      AND mb.year = ? AND mb.month = ?
                  WHERE ec.id = ?
@@ -909,9 +934,9 @@ app.get('/api/transactions/date/:date', async (req, res) => {
     try {
         const { date } = req.params;
         console.log(`日付別取引取得: ${date}`);
-        
+
         const transactions = await db.all(`
-            SELECT 
+            SELECT
                 t.*,
                 ec.name as expense_category_name,
                 wc.name as wallet_category_name,
@@ -920,7 +945,7 @@ app.get('/api/transactions/date/:date', async (req, res) => {
             LEFT JOIN expense_categories ec ON t.expense_category_id = ec.id
             LEFT JOIN wallet_categories wc ON t.wallet_category_id = wc.id
             LEFT JOIN credit_categories cc ON t.credit_category_id = cc.id
-            WHERE date(t.date) = date(?)
+            WHERE ${getDateOnly('t.date')} = ${db.type === 'postgresql' ? '$1::date' : 'date(?)'}
             ORDER BY t.created_at DESC
         `, [date]);
         
@@ -1166,7 +1191,7 @@ app.get('/api/summary/:year/:month', async (req, res) => {
                     ec.id as category_id
              FROM expense_categories ec
              LEFT JOIN transactions t ON ec.id = t.expense_category_id 
-                 AND t.type IN ('expense', 'income') AND strftime('%Y-%m', t.date) = ?
+                 AND t.type IN ('expense', 'income') AND ${getYearMonthFormat('t.date')} = ?
              LEFT JOIN monthly_budgets mb ON ec.id = mb.expense_category_id 
                  AND mb.year = ? AND mb.month = ?
              GROUP BY ec.id, ec.name, mb.budget_amount
@@ -1209,7 +1234,7 @@ app.get('/api/category-transactions/:year/:month/:categoryId/:categoryType', asy
                 LEFT JOIN wallet_categories wc ON t.wallet_category_id = wc.id
                 LEFT JOIN credit_categories cc ON t.credit_category_id = cc.id
                 WHERE t.expense_category_id = ? 
-                    AND strftime('%Y-%m', t.date) = ?
+                    AND ${getYearMonthFormat('t.date')} = ?
                     AND t.type IN ('expense', 'income')
                 ORDER BY t.date DESC, t.created_at DESC
             `;
@@ -1224,7 +1249,7 @@ app.get('/api/category-transactions/:year/:month/:categoryId/:categoryType', asy
                 LEFT JOIN wallet_categories wc ON t.wallet_category_id = wc.id
                 LEFT JOIN credit_categories cc ON t.credit_category_id = cc.id
                 WHERE t.credit_category_id = ? 
-                    AND strftime('%Y-%m', t.date) = ?
+                    AND ${getYearMonthFormat('t.date')} = ?
                     AND t.type = 'expense'
                 ORDER BY t.date DESC, t.created_at DESC
             `;
@@ -1256,7 +1281,7 @@ app.get('/api/wallet-transactions/:year/:month/:walletId', async (req, res) => {
             LEFT JOIN wallet_categories wc ON t.wallet_category_id = wc.id
             LEFT JOIN credit_categories cc ON t.credit_category_id = cc.id
             WHERE t.wallet_category_id = ? 
-                AND strftime('%Y-%m', t.date) = ?
+                AND ${getYearMonthFormat('t.date')} = ?
             ORDER BY t.date DESC, t.created_at DESC
         `, [walletId, yearMonth]);
         
@@ -1276,18 +1301,18 @@ app.get('/api/stats/:year/:month?', async (req, res) => {
         console.log(`統計データ取得: year=${year}, month=${month}`);
         
         // 期間条件を構築
-        let dateCondition = 'strftime("%Y", t.date) = ?';
+        let dateCondition = `${getYearFormat('t.date')} = ?`;
         let params = [year];
-        
+
         if (month) {
-            dateCondition += ' AND strftime("%m", t.date) = ?';
+            dateCondition += ` AND ${getMonthFormat('t.date')} = ?`;
             params.push(month.padStart(2, '0'));
         }
         
         // 月別収支データ（振替・チャージ・予算振替は収入から除外）
         const monthlyStats = await db.all(`
             SELECT 
-                strftime('%Y-%m', t.date) as month,
+                ${getYearMonthFormat('t.date')} as month,
                 SUM(CASE 
                     WHEN t.type = 'income' 
                          AND t.description NOT LIKE '%振替%'
@@ -1310,7 +1335,7 @@ app.get('/api/stats/:year/:month?', async (req, res) => {
                 END) as expense
             FROM transactions t
             WHERE ${dateCondition}
-            GROUP BY strftime('%Y-%m', t.date)
+            GROUP BY ${getYearMonthFormat('t.date')}
             ORDER BY month
         `, params);
         
