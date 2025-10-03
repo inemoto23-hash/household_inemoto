@@ -1401,12 +1401,12 @@ app.get('/api/stats/:year/:month?', async (req, res) => {
         
         // カテゴリ別支出データ（振替・チャージ・予算調整を除外）
         const categoryStats = await db.all(`
-            SELECT 
+            SELECT
                 ec.name as category,
                 SUM(t.amount) as total
             FROM transactions t
             JOIN expense_categories ec ON t.expense_category_id = ec.id
-            WHERE t.type = 'expense' 
+            WHERE t.type = 'expense'
                 AND ${dateCondition}
                 AND t.description NOT LIKE '%振替%'
                 AND t.description NOT LIKE '%チャージ%'
@@ -1414,7 +1414,7 @@ app.get('/api/stats/:year/:month?', async (req, res) => {
                 AND t.description NOT LIKE '%予算残高調整%'
                 AND t.payment_location != '予算調整'
             GROUP BY ec.id, ec.name
-            HAVING total > 0
+            HAVING SUM(t.amount) > 0
             ORDER BY total DESC
         `, params);
         
