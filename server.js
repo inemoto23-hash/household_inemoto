@@ -317,25 +317,6 @@ app.delete('/api/expense-categories/:id', async (req, res) => {
     }
 });
 
-// 決済場所自動補完API
-app.get('/api/payment-locations', async (req, res) => {
-    try {
-        const { search } = req.query;
-        let query = 'SELECT * FROM payment_locations ORDER BY usage_count DESC, name';
-        let params = [];
-        
-        if (search) {
-            query = 'SELECT * FROM payment_locations WHERE name LIKE ? ORDER BY usage_count DESC, name LIMIT 10';
-            params = [`%${search}%`];
-        }
-        
-        const locations = await db.all(query, params);
-        res.json(locations);
-    } catch (error) {
-        res.status(500).json({ error: '決済場所の取得に失敗しました' });
-    }
-});
-
 // 個別取引取得API
 app.get('/api/transactions/:id', async (req, res) => {
     try {
@@ -548,15 +529,15 @@ app.post('/api/transactions', async (req, res) => {
             const fromCategoryBalance = await db.get(
                 `SELECT ec.name as category_name,
                         COALESCE(mb.budget_amount, 0) as budget,
-                        (COALESCE(mb.budget_amount, 0) - 
+                        (COALESCE(mb.budget_amount, 0) -
                          (COALESCE(SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END), 0) -
                           COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END), 0))) as remaining
                  FROM expense_categories ec
                  LEFT JOIN transactions t ON ec.id = t.expense_category_id
                      AND t.type IN ('expense', 'income') AND ${getYearMonthFormat('t.date')} = ${db.type === 'postgresql' ? '$1' : '?'}
-                 LEFT JOIN monthly_budgets mb ON ec.id = mb.expense_category_id 
-                     AND mb.year = ? AND mb.month = ?
-                 WHERE ec.id = ?
+                 LEFT JOIN monthly_budgets mb ON ec.id = mb.expense_category_id
+                     AND mb.year = ${db.type === 'postgresql' ? '$2' : '?'} AND mb.month = ${db.type === 'postgresql' ? '$3' : '?'}
+                 WHERE ec.id = ${db.type === 'postgresql' ? '$4' : '?'}
                  GROUP BY ec.id, ec.name, mb.budget_amount`,
                 [`${year}-${month.toString().padStart(2, '0')}`, year, month, budget_from_category_id]
             );
@@ -621,14 +602,27 @@ app.post('/api/transactions', async (req, res) => {
                 const year = transactionDate.getFullYear();
                 const month = transactionDate.getMonth() + 1;
 
-                await db.run(
-                    `INSERT OR REPLACE INTO monthly_credit_summary (year, month, credit_category_id, total_amount)
-                     VALUES (?, ?, ?, COALESCE((
-                         SELECT total_amount FROM monthly_credit_summary 
-                         WHERE year = ? AND month = ? AND credit_category_id = ?
-                     ), 0) + ?)`,
-                    [year, month, charge_from_credit_id, year, month, charge_from_credit_id, amount]
-                );
+                if (db.type === 'postgresql') {
+                    await db.run(
+                        `INSERT INTO monthly_credit_summary (year, month, credit_category_id, total_amount)
+                         VALUES ($1, $2, $3, COALESCE((
+                             SELECT total_amount FROM monthly_credit_summary
+                             WHERE year = $4 AND month = $5 AND credit_category_id = $6
+                         ), 0) + $7)
+                         ON CONFLICT (year, month, credit_category_id)
+                         DO UPDATE SET total_amount = EXCLUDED.total_amount`,
+                        [year, month, charge_from_credit_id, year, month, charge_from_credit_id, amount]
+                    );
+                } else {
+                    await db.run(
+                        `INSERT OR REPLACE INTO monthly_credit_summary (year, month, credit_category_id, total_amount)
+                         VALUES (?, ?, ?, COALESCE((
+                             SELECT total_amount FROM monthly_credit_summary
+                             WHERE year = ? AND month = ? AND credit_category_id = ?
+                         ), 0) + ?)`,
+                        [year, month, charge_from_credit_id, year, month, charge_from_credit_id, amount]
+                    );
+                }
 
                 res.json({ 
                     id: chargeExpenseResult.lastID,
@@ -723,14 +717,27 @@ app.post('/api/transactions', async (req, res) => {
                 const year = transactionDate.getFullYear();
                 const month = transactionDate.getMonth() + 1;
 
-                await db.run(
-                    `INSERT OR REPLACE INTO monthly_credit_summary (year, month, credit_category_id, total_amount)
-                     VALUES (?, ?, ?, COALESCE((
-                         SELECT total_amount FROM monthly_credit_summary 
-                         WHERE year = ? AND month = ? AND credit_category_id = ?
-                     ), 0) + ?)`,
-                    [year, month, credit_category_id, year, month, credit_category_id, amount]
-                );
+                if (db.type === 'postgresql') {
+                    await db.run(
+                        `INSERT INTO monthly_credit_summary (year, month, credit_category_id, total_amount)
+                         VALUES ($1, $2, $3, COALESCE((
+                             SELECT total_amount FROM monthly_credit_summary
+                             WHERE year = $4 AND month = $5 AND credit_category_id = $6
+                         ), 0) + $7)
+                         ON CONFLICT (year, month, credit_category_id)
+                         DO UPDATE SET total_amount = EXCLUDED.total_amount`,
+                        [year, month, credit_category_id, year, month, credit_category_id, amount]
+                    );
+                } else {
+                    await db.run(
+                        `INSERT OR REPLACE INTO monthly_credit_summary (year, month, credit_category_id, total_amount)
+                         VALUES (?, ?, ?, COALESCE((
+                             SELECT total_amount FROM monthly_credit_summary
+                             WHERE year = ? AND month = ? AND credit_category_id = ?
+                         ), 0) + ?)`,
+                        [year, month, credit_category_id, year, month, credit_category_id, amount]
+                    );
+                }
             }
 
             res.json({ id: result.lastID, message: '取引を記録しました' });
@@ -780,9 +787,9 @@ app.put('/api/transactions/:id', async (req, res) => {
             const existingMonth = existingDate.getMonth() + 1;
 
             await db.run(
-                `UPDATE monthly_credit_summary 
-                 SET total_amount = total_amount - ? 
-                 WHERE year = ? AND month = ? AND credit_category_id = ?`,
+                `UPDATE monthly_credit_summary
+                 SET total_amount = total_amount - ${db.type === 'postgresql' ? '$1' : '?'}
+                 WHERE year = ${db.type === 'postgresql' ? '$2' : '?'} AND month = ${db.type === 'postgresql' ? '$3' : '?'} AND credit_category_id = ${db.type === 'postgresql' ? '$4' : '?'}`,
                 [existingTransaction.amount, existingYear, existingMonth, existingTransaction.credit_category_id]
             );
         }
@@ -854,14 +861,27 @@ app.put('/api/transactions/:id', async (req, res) => {
             const year = transactionDate.getFullYear();
             const month = transactionDate.getMonth() + 1;
 
-            await db.run(
-                `INSERT OR REPLACE INTO monthly_credit_summary (year, month, credit_category_id, total_amount)
-                 VALUES (?, ?, ?, COALESCE((
-                     SELECT total_amount FROM monthly_credit_summary 
-                     WHERE year = ? AND month = ? AND credit_category_id = ?
-                 ), 0) + ?)`,
-                [year, month, credit_category_id, year, month, credit_category_id, amount]
-            );
+            if (db.type === 'postgresql') {
+                await db.run(
+                    `INSERT INTO monthly_credit_summary (year, month, credit_category_id, total_amount)
+                     VALUES ($1, $2, $3, COALESCE((
+                         SELECT total_amount FROM monthly_credit_summary
+                         WHERE year = $4 AND month = $5 AND credit_category_id = $6
+                     ), 0) + $7)
+                     ON CONFLICT (year, month, credit_category_id)
+                     DO UPDATE SET total_amount = EXCLUDED.total_amount`,
+                    [year, month, credit_category_id, year, month, credit_category_id, amount]
+                );
+            } else {
+                await db.run(
+                    `INSERT OR REPLACE INTO monthly_credit_summary (year, month, credit_category_id, total_amount)
+                     VALUES (?, ?, ?, COALESCE((
+                         SELECT total_amount FROM monthly_credit_summary
+                         WHERE year = ? AND month = ? AND credit_category_id = ?
+                     ), 0) + ?)`,
+                    [year, month, credit_category_id, year, month, credit_category_id, amount]
+                );
+            }
         }
 
         res.json({ message: '取引を更新しました' });
@@ -1204,8 +1224,8 @@ app.get('/api/summary/:year/:month', async (req, res) => {
         const creditSummary = await db.all(
             `SELECT cc.name as category, COALESCE(mcs.total_amount, 0) as total, cc.id as category_id
              FROM credit_categories cc
-             LEFT JOIN monthly_credit_summary mcs ON cc.id = mcs.credit_category_id 
-                 AND mcs.year = ? AND mcs.month = ?
+             LEFT JOIN monthly_credit_summary mcs ON cc.id = mcs.credit_category_id
+                 AND mcs.year = ${db.type === 'postgresql' ? '$1' : '?'} AND mcs.month = ${db.type === 'postgresql' ? '$2' : '?'}
              ORDER BY cc.name`,
             [year, month]
         );
