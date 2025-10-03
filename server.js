@@ -1180,23 +1180,24 @@ app.get('/api/summary/:year/:month', async (req, res) => {
         const { year, month } = req.params;
         
         // 出費カテゴリ別集計（支出から収入を引いた正味支出）
-        const expenseSummary = await db.all(
-            `SELECT ec.name as category, 
+        const yearMonth = `${year}-${month.toString().padStart(2, '0')}`;
+        const expenseSummary = await db.all(`
+            SELECT ec.name as category,
                     COALESCE(SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END), 0) -
                     COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END), 0) as total,
                     COALESCE(mb.budget_amount, 0) as budget,
-                    (COALESCE(mb.budget_amount, 0) - 
+                    (COALESCE(mb.budget_amount, 0) -
                      (COALESCE(SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END), 0) -
                       COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END), 0))) as remaining,
                     ec.id as category_id
              FROM expense_categories ec
-             LEFT JOIN transactions t ON ec.id = t.expense_category_id 
-                 AND t.type IN ('expense', 'income') AND ${getYearMonthFormat('t.date')} = ?
-             LEFT JOIN monthly_budgets mb ON ec.id = mb.expense_category_id 
-                 AND mb.year = ? AND mb.month = ?
+             LEFT JOIN transactions t ON ec.id = t.expense_category_id
+                 AND t.type IN ('expense', 'income') AND ${getYearMonthFormat('t.date')} = ${db.type === 'postgresql' ? '$1' : '?'}
+             LEFT JOIN monthly_budgets mb ON ec.id = mb.expense_category_id
+                 AND mb.year = ${db.type === 'postgresql' ? '$2' : '?'} AND mb.month = ${db.type === 'postgresql' ? '$3' : '?'}
              GROUP BY ec.id, ec.name, mb.budget_amount
              ORDER BY ec.name`,
-            [`${year}-${month.toString().padStart(2, '0')}`, year, month]
+            [yearMonth, year, month]
         );
 
         // クレジット使用額集計
@@ -1227,14 +1228,14 @@ app.get('/api/category-transactions/:year/:month/:categoryId/:categoryType', asy
         if (categoryType === 'expense') {
             // 出費カテゴリの取引
             query = `
-                SELECT t.*, ec.name as expense_category_name, 
+                SELECT t.*, ec.name as expense_category_name,
                        wc.name as wallet_category_name, cc.name as credit_category_name
                 FROM transactions t
                 LEFT JOIN expense_categories ec ON t.expense_category_id = ec.id
                 LEFT JOIN wallet_categories wc ON t.wallet_category_id = wc.id
                 LEFT JOIN credit_categories cc ON t.credit_category_id = cc.id
-                WHERE t.expense_category_id = ? 
-                    AND ${getYearMonthFormat('t.date')} = ?
+                WHERE t.expense_category_id = ${db.type === 'postgresql' ? '$1' : '?'}
+                    AND ${getYearMonthFormat('t.date')} = ${db.type === 'postgresql' ? '$2' : '?'}
                     AND t.type IN ('expense', 'income')
                 ORDER BY t.date DESC, t.created_at DESC
             `;
@@ -1242,14 +1243,14 @@ app.get('/api/category-transactions/:year/:month/:categoryId/:categoryType', asy
         } else if (categoryType === 'credit') {
             // クレジットカテゴリの取引
             query = `
-                SELECT t.*, ec.name as expense_category_name, 
+                SELECT t.*, ec.name as expense_category_name,
                        wc.name as wallet_category_name, cc.name as credit_category_name
                 FROM transactions t
                 LEFT JOIN expense_categories ec ON t.expense_category_id = ec.id
                 LEFT JOIN wallet_categories wc ON t.wallet_category_id = wc.id
                 LEFT JOIN credit_categories cc ON t.credit_category_id = cc.id
-                WHERE t.credit_category_id = ? 
-                    AND ${getYearMonthFormat('t.date')} = ?
+                WHERE t.credit_category_id = ${db.type === 'postgresql' ? '$1' : '?'}
+                    AND ${getYearMonthFormat('t.date')} = ${db.type === 'postgresql' ? '$2' : '?'}
                     AND t.type = 'expense'
                 ORDER BY t.date DESC, t.created_at DESC
             `;
@@ -1274,14 +1275,14 @@ app.get('/api/wallet-transactions/:year/:month/:walletId', async (req, res) => {
         const yearMonth = `${year}-${month.toString().padStart(2, '0')}`;
         
         const transactions = await db.all(`
-            SELECT t.*, ec.name as expense_category_name, 
+            SELECT t.*, ec.name as expense_category_name,
                    wc.name as wallet_category_name, cc.name as credit_category_name
             FROM transactions t
             LEFT JOIN expense_categories ec ON t.expense_category_id = ec.id
             LEFT JOIN wallet_categories wc ON t.wallet_category_id = wc.id
             LEFT JOIN credit_categories cc ON t.credit_category_id = cc.id
-            WHERE t.wallet_category_id = ? 
-                AND ${getYearMonthFormat('t.date')} = ?
+            WHERE t.wallet_category_id = ${db.type === 'postgresql' ? '$1' : '?'}
+                AND ${getYearMonthFormat('t.date')} = ${db.type === 'postgresql' ? '$2' : '?'}
             ORDER BY t.date DESC, t.created_at DESC
         `, [walletId, yearMonth]);
         
