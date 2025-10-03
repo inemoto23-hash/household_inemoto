@@ -999,12 +999,24 @@ app.post('/api/parse-fuzzy', async (req, res) => {
 クレジットカード: ${creditCategories.map(c => c.name).join('、')}
 `;
 
+        // 日本時間で今日の日付を計算
+        const now = new Date();
+        const jstOffset = 9 * 60 * 60 * 1000; // JST is UTC+9
+        const jstNow = new Date(now.getTime() + jstOffset);
+        const today = jstNow.toISOString().split('T')[0];
+        const yesterday = new Date(jstNow.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const dayBeforeYesterday = new Date(jstNow.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
         const response = await axios.post('https://api.openai.com/v1/chat/completions', {
             model: 'gpt-4o-mini',
             messages: [
                 {
                     role: 'system',
                     content: `あなたは家計簿アプリのアシスタントです。ユーザーの自然言語入力から取引情報を抽出してJSON形式で返してください。
+
+今日の日付: ${today}
+昨日の日付: ${yesterday}
+一昨日の日付: ${dayBeforeYesterday}
 
 利用可能なカテゴリ:
 ${categoriesText}
@@ -1017,6 +1029,7 @@ ${categoriesText}
 - description: 説明文
 
 任意項目:
+- date: 日付（YYYY-MM-DD形式。「昨日」「一昨日」「10月3日」などの表現があれば日付に変換。なければnull）
 - payment_location: 決済場所・店舗名
 - memo: メモ
 
@@ -1024,6 +1037,7 @@ JSON形式（説明文・マークダウン不要）:
 {
   "type": "expense" or "income",
   "amount": 数値,
+  "date": "YYYY-MM-DD" または null,
   "expense_category": "カテゴリ名",
   "wallet_category": "財布名" または null,
   "credit_category": "クレジットカード名" または null,

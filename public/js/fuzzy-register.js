@@ -19,7 +19,14 @@ function initFuzzyRegister() {
     // タブクリック
     fuzzyTab.addEventListener('click', () => {
         switchView('fuzzy-view');
-        document.getElementById('fuzzy-date').valueAsDate = new Date();
+        // 日本時間で今日の日付を設定
+        const now = new Date();
+        const jstOffset = 9 * 60; // JST is UTC+9
+        const jstDate = new Date(now.getTime() + jstOffset * 60 * 1000);
+        const year = jstDate.getUTCFullYear();
+        const month = String(jstDate.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(jstDate.getUTCDate()).padStart(2, '0');
+        document.getElementById('fuzzy-date').value = `${year}-${month}-${day}`;
     });
 
     // 解析ボタン
@@ -152,9 +159,20 @@ async function parseFuzzyInput() {
 
 // 解析結果をフォームに反映
 function populateFuzzyForm(result) {
-    // 日付（今日の日付をデフォルト）
+    // 日付（APIから返された日付、なければ今日の日付）
     const dateInput = document.getElementById('fuzzy-date');
-    dateInput.valueAsDate = new Date();
+    if (result.date) {
+        dateInput.value = result.date;
+    } else {
+        // 日本時間で今日の日付を設定
+        const now = new Date();
+        const jstOffset = 9 * 60; // JST is UTC+9
+        const jstDate = new Date(now.getTime() + jstOffset * 60 * 1000);
+        const year = jstDate.getUTCFullYear();
+        const month = String(jstDate.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(jstDate.getUTCDate()).padStart(2, '0');
+        dateInput.value = `${year}-${month}-${day}`;
+    }
 
     // 種別
     if (result.type) {
