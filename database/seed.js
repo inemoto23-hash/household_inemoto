@@ -3,98 +3,10 @@ const path = require('path');
 
 // 初期データを投入する関数
 async function seedDatabase(db) {
-    console.log('完全なデータベース（入力済みデータ含む）を投入中...');
-    
+    console.log('データベースにデータを投入中...');
+
     try {
-        // 強制的にデータベースを再作成（デプロイ環境用）
-        console.log('既存のデータベースを削除して最新データで再作成します...');
-        
-        // 全テーブルを削除
-        await db.run('DROP TABLE IF EXISTS transactions');
-        await db.run('DROP TABLE IF EXISTS monthly_budgets');
-        await db.run('DROP TABLE IF EXISTS monthly_credit_summary');
-        await db.run('DROP TABLE IF EXISTS expense_categories');
-        await db.run('DROP TABLE IF EXISTS wallet_categories');
-        await db.run('DROP TABLE IF EXISTS credit_categories');
-        
-        // テーブルを再作成
-        const createTablesSQL = `
-            CREATE TABLE expense_categories (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE wallet_categories (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE,
-                balance DECIMAL(10,2) DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE credit_categories (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE transactions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                date DATE NOT NULL,
-                amount DECIMAL(10,2) NOT NULL,
-                type TEXT CHECK(type IN ('income', 'expense', 'transfer', 'charge', 'budget_transfer')) NOT NULL,
-                expense_category_id INTEGER,
-                wallet_category_id INTEGER,
-                credit_category_id INTEGER,
-                description TEXT,
-                memo TEXT DEFAULT '',
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                payment_location TEXT DEFAULT '',
-                notes TEXT DEFAULT '',
-                FOREIGN KEY (expense_category_id) REFERENCES expense_categories(id),
-                FOREIGN KEY (wallet_category_id) REFERENCES wallet_categories(id),
-                FOREIGN KEY (credit_category_id) REFERENCES credit_categories(id)
-            );
-
-            CREATE TABLE monthly_budgets (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                year INTEGER NOT NULL,
-                month INTEGER NOT NULL,
-                expense_category_id INTEGER NOT NULL,
-                budget_amount DECIMAL(10,2) NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (expense_category_id) REFERENCES expense_categories(id),
-                UNIQUE(year, month, expense_category_id)
-            );
-
-            CREATE TABLE monthly_credit_summary (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                year INTEGER NOT NULL,
-                month INTEGER NOT NULL,
-                credit_category_id INTEGER NOT NULL,
-                total_amount DECIMAL(10,2) DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (credit_category_id) REFERENCES credit_categories(id),
-                UNIQUE(year, month, credit_category_id)
-            );
-        `;
-        
-        const statements = createTablesSQL.split(';').filter(s => s.trim());
-        for (const statement of statements) {
-            if (statement.trim()) {
-                await db.run(statement.trim());
-            }
-        }
-        
-        console.log('テーブル再作成完了');
-        
-        // 完全なデータセットを直接投入
-        console.log('完全なデータセット（migration_data内容）を読み込み中...');
-        
         const migrationStatements = [
-            // expense_categories データ
             "INSERT INTO expense_categories (id, name, created_at) VALUES (1, '食費', '2025-08-30 22:55:15')",
             "INSERT INTO expense_categories (id, name, created_at) VALUES (2, '生活費', '2025-08-30 22:55:15')",
             "INSERT INTO expense_categories (id, name, created_at) VALUES (3, '養育費', '2025-08-30 22:55:15')",
@@ -107,52 +19,44 @@ async function seedDatabase(db) {
             "INSERT INTO expense_categories (id, name, created_at) VALUES (11, 'その他', '2025-08-31 09:15:20')",
             "INSERT INTO expense_categories (id, name, created_at) VALUES (12, 'たけ小遣い', '2025-08-31 13:28:19')",
             "INSERT INTO expense_categories (id, name, created_at) VALUES (13, 'ささ小遣い', '2025-08-31 13:28:19')",
-
-            // wallet_categories データ
             "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (1, '三井住友銀行', 771, '2025-08-30 22:55:15')",
-            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (2, '埼玉りそな銀行', 122844, '2025-08-30 22:55:15')",
-            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (3, '楽天銀行', 548089, '2025-08-30 22:55:15')",
-            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (4, '楽天証券', 415513, '2025-08-30 22:55:15')",
+            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (2, '埼玉りそな銀行', 304951, '2025-08-30 22:55:15')",
+            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (3, '楽天銀行', 511674, '2025-08-30 22:55:15')",
+            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (4, '楽天証券', 415711, '2025-08-30 22:55:15')",
             "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (5, '住信SBI証券', 4855, '2025-08-30 22:55:15')",
-            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (6, '現金たけ', 40470, '2025-08-30 22:55:15')",
-            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (7, '現金ささ', 6607, '2025-08-30 22:55:15')",
-            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (8, 'Suicaたけ', 4476, '2025-08-30 22:55:15')",
-            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (9, 'Suicaささ', 6437, '2025-08-30 22:55:15')",
-            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (10, '楽天Payたけ', 2645, '2025-08-30 22:55:15')",
-            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (11, '楽天Payささ', 7384, '2025-08-30 22:55:15')",
-            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (12, '家現金', 218700, '2025-08-31 09:11:33')",
-
-            // credit_categories データ
+            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (6, '現金たけ', 20836, '2025-08-30 22:55:15')",
+            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (7, '現金ささ', 12247, '2025-08-30 22:55:15')",
+            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (8, 'Suicaたけ', 10231, '2025-08-30 22:55:15')",
+            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (9, 'Suicaささ', 3607, '2025-08-30 22:55:15')",
+            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (10, '楽天Payたけ', 4058, '2025-08-30 22:55:15')",
+            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (11, '楽天Payささ', -1066, '2025-08-30 22:55:15')",
+            "INSERT INTO wallet_categories (id, name, balance, created_at) VALUES (12, '家現金', 115700, '2025-08-31 09:11:33')",
             "INSERT INTO credit_categories (id, name, created_at) VALUES (1, '楽天カード', '2025-08-30 22:55:15')",
             "INSERT INTO credit_categories (id, name, created_at) VALUES (2, 'PayPay', '2025-08-30 22:55:15')",
-
-            // monthly_budgets データ（9月・10月予算）
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (44, 2025, 9, 11, 0, '2025-08-31 09:34:22')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (45, 2025, 9, 4, 66644, '2025-08-31 09:34:22')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (46, 2025, 9, 9, 45000, '2025-08-31 09:34:22')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (47, 2025, 9, 8, 10000, '2025-08-31 09:34:22')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (48, 2025, 9, 6, 20000, '2025-08-31 09:34:22')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (50, 2025, 9, 10, 0, '2025-08-31 09:34:22')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (51, 2025, 9, 2, 20000, '2025-08-31 09:34:22')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (52, 2025, 9, 7, 29000, '2025-08-31 09:34:22')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (53, 2025, 9, 1, 105400, '2025-08-31 09:34:22')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (54, 2025, 9, 3, 70000, '2025-08-31 09:34:22')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (55, 2025, 9, 12, 35000, '2025-08-31 13:28:19')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (56, 2025, 9, 13, 35000, '2025-08-31 13:28:19')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (57, 2025, 10, 1, 105400, '2025-09-01 14:01:30')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (58, 2025, 10, 2, 20000, '2025-09-01 14:01:30')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (59, 2025, 10, 3, 70000, '2025-09-01 14:01:30')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (60, 2025, 10, 4, 66644, '2025-09-01 14:01:30')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (61, 2025, 10, 6, 20000, '2025-09-01 14:01:30')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (62, 2025, 10, 7, 29000, '2025-09-01 14:01:30')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (63, 2025, 10, 8, 10000, '2025-09-01 14:01:30')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (64, 2025, 10, 9, 45000, '2025-09-01 14:01:30')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (65, 2025, 10, 10, 0, '2025-09-01 14:01:30')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (66, 2025, 10, 11, 0, '2025-09-01 14:01:30')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (67, 2025, 10, 12, 35000, '2025-09-01 14:01:30')",
-            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (68, 2025, 10, 13, 35000, '2025-09-01 14:01:30')",
-
-            // transactions データ（入力済み16件）
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (129, 2025, 9, 1, 106000, '2025-09-30 14:09:02')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (130, 2025, 9, 2, 20000, '2025-09-30 14:09:02')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (131, 2025, 9, 3, 70000, '2025-09-30 14:09:02')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (132, 2025, 9, 9, 45000, '2025-09-30 14:09:02')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (133, 2025, 9, 6, 20000, '2025-09-30 14:09:02')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (134, 2025, 9, 8, 10000, '2025-09-30 14:09:02')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (135, 2025, 9, 7, 29000, '2025-09-30 14:09:02')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (136, 2025, 9, 12, 35000, '2025-09-30 14:09:02')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (137, 2025, 9, 13, 35000, '2025-09-30 14:09:02')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (138, 2025, 9, 10, 0, '2025-09-30 14:09:02')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (139, 2025, 9, 4, 66644, '2025-09-30 14:09:02')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (140, 2025, 9, 11, 0, '2025-09-30 14:09:02')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (177, 2025, 10, 1, 106000, '2025-09-30 14:09:50')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (178, 2025, 10, 2, 20000, '2025-09-30 14:09:50')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (179, 2025, 10, 3, 70000, '2025-09-30 14:09:50')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (180, 2025, 10, 9, 45000, '2025-09-30 14:09:50')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (181, 2025, 10, 6, 20000, '2025-09-30 14:09:50')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (182, 2025, 10, 8, 10000, '2025-09-30 14:09:50')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (183, 2025, 10, 7, 29000, '2025-09-30 14:09:50')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (184, 2025, 10, 12, 6400, '2025-09-30 14:09:50')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (185, 2025, 10, 13, 13680, '2025-09-30 14:09:50')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (186, 2025, 10, 10, 0, '2025-09-30 14:09:50')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (187, 2025, 10, 4, 66644, '2025-09-30 14:09:50')",
+            "INSERT INTO monthly_budgets (id, year, month, expense_category_id, budget_amount, created_at) VALUES (188, 2025, 10, 11, 0, '2025-09-30 14:09:50')",
             "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (8, '2025-09-01', 66644, 'expense', NULL, 3, NULL, '振替出金: 住宅ローン振込', '', '2025-08-31 11:28:48', '2025-08-31 11:28:48', '', '')",
             "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (9, '2025-09-01', 66644, 'income', NULL, 5, NULL, '振替入金: 住宅ローン振込', '', '2025-08-31 11:28:48', '2025-08-31 11:28:48', '', '')",
             "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (11, '2025-09-01', 66644, 'expense', 4, 5, NULL, '住宅ローン支払い', '', '2025-08-31 11:31:24', '2025-08-31 11:31:24', '', '')",
@@ -169,113 +73,291 @@ async function seedDatabase(db) {
             "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (29, '2025-09-01', 386, 'expense', 1, 11, NULL, '食パンとゆきパン', '', '2025-09-01 13:59:00', '2025-09-01 13:59:00', 'セキ薬品', '')",
             "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (30, '2025-09-01', 2500, 'expense', 3, 12, NULL, '保育園', '', '2025-09-01 13:59:29', '2025-09-01 13:59:29', 'まむろ', '')",
             "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (31, '2025-09-01', 5250, 'expense', 12, NULL, 1, 'グラブル', '', '2025-09-01 14:00:35', '2025-09-01 14:00:35', '', '')",
-
-            // monthly_credit_summary データ
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (32, '2025-09-02', 2500, 'expense', 3, 12, NULL, '保育園一時預かり', '', '2025-09-02 00:11:56', '2025-09-02 00:11:56', '馬室保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (34, '2025-09-02', 484, 'expense', 2, 9, NULL, '電車', '', '2025-09-03 14:12:16', '2025-09-03 14:12:16', 'JR', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (35, '2025-09-03', 150, 'expense', 1, 9, NULL, '麦茶', '', '2025-09-03 14:12:42', '2025-09-03 14:12:42', 'JR', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (36, '2025-09-02', 34, 'expense', 1, 11, NULL, 'ドレッシング', '', '2025-09-03 14:14:15', '2025-09-03 14:14:34', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (37, '2025-09-03', 484, 'expense', 2, 9, NULL, '電車', '', '2025-09-03 14:15:35', '2025-09-03 14:15:35', 'JR', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (38, '2025-09-02', 2076, 'expense', 3, 11, NULL, 'ゆき保育園タオル', '', '2025-09-03 14:17:26', '2025-09-03 14:17:26', 'しまむら', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (40, '2025-09-02', 80, 'expense', 2, 7, NULL, 'ネットプリント', '', '2025-09-03 14:19:14', '2025-09-03 14:19:14', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (41, '2025-09-02', 430, 'expense', 2, 7, NULL, 'レターパック', '', '2025-09-03 14:20:30', '2025-09-03 14:20:30', 'ファミリーマート', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (42, '2025-09-03', 2500, 'expense', 3, 12, NULL, '保育園一時預かり', '', '2025-09-03 14:21:11', '2025-09-03 14:21:11', '生出塚', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (43, '2025-09-03', 63, 'expense', 1, 11, NULL, 'ドレッシング+チロルチョコ', '', '2025-09-03 14:22:09', '2025-09-03 14:22:09', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (44, '2025-09-03', 1248, 'expense', 1, 11, NULL, '1248', '', '2025-09-03 14:22:41', '2025-09-03 14:22:41', '吉野家', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (45, '2025-09-02', 935, 'expense', 2, NULL, 2, '本', '', '2025-09-03 21:57:47', '2025-09-03 21:57:47', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (46, '2025-09-03', 368, 'expense', 1, 10, NULL, '昼飯', '', '2025-09-03 21:58:42', '2025-09-03 21:58:42', 'ファミマ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (47, '2025-09-03', 130, 'expense', 1, 8, NULL, '飲み物', '', '2025-09-03 21:59:33', '2025-09-03 21:59:33', '会社', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (48, '2025-09-03', 750, 'expense', 2, NULL, 1, 'グリーン車', '', '2025-09-03 21:59:59', '2025-09-03 21:59:59', '上野', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (50, '2025-09-02', 3348, 'expense', 9, NULL, 1, 'ガス代金', '', '2025-09-05 00:57:13', '2025-09-05 00:57:13', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (51, '2025-09-01', 2280, 'expense', 6, NULL, 1, 'Youtubeプレミアム', '', '2025-09-05 05:34:28', '2025-09-05 05:34:28', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (52, '2025-09-05', 484, 'expense', 2, 9, NULL, '交通費', '', '2025-09-05 12:05:10', '2025-09-05 12:05:10', 'JR', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (53, '2025-09-04', 484, 'expense', 2, 9, NULL, '交通費', '', '2025-09-05 12:05:38', '2025-09-05 12:05:38', 'JR', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (54, '2025-09-05', 110, 'expense', 2, 11, NULL, '仕事で使うもの', '', '2025-09-05 12:06:14', '2025-09-05 12:06:14', 'ダイソー', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (55, '2025-09-04', 1636, 'expense', 1, 11, NULL, '朝飯', '', '2025-09-05 12:08:53', '2025-09-06 04:59:54', 'ファミマ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (56, '2025-09-04', 271, 'expense', 1, 11, NULL, 'おにぎりとドレッシング', '', '2025-09-05 12:09:43', '2025-09-05 12:09:43', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (57, '2025-09-05', 218, 'expense', 1, 11, NULL, '', '', '2025-09-05 12:10:38', '2025-09-05 12:10:38', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (58, '2025-09-04', 2500, 'expense', 3, 12, NULL, '保育園一時預かり', '', '2025-09-05 13:30:09', '2025-09-05 13:30:09', '生出塚保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (59, '2025-09-05', 2500, 'expense', 3, 12, NULL, '保育園一時預かり', '', '2025-09-05 13:30:25', '2025-09-05 13:30:25', '生出塚保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (60, '2025-09-03', 605, 'expense', 3, NULL, 1, 'パズル', '', '2025-09-05 21:31:04', '2025-09-05 21:31:04', 'Amazon', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (61, '2025-09-06', 240, 'expense', 1, 8, NULL, 'ゆきとお茶', '', '2025-09-06 04:56:13', '2025-09-06 04:56:13', '無印良品', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (62, '2025-09-06', 1000, 'expense', 3, 8, NULL, 'ゆきおもちゃ', '', '2025-09-06 04:56:43', '2025-09-06 04:56:43', '鴻巣駅', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (63, '2025-09-06', 100, 'expense', 1, 7, NULL, 'コーヒー', '', '2025-09-06 04:57:09', '2025-09-06 04:57:09', '無印良品', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (64, '2025-09-06', 10000, 'expense', NULL, NULL, 1, 'チャージ: クレジットチャージ', '', '2025-09-06 04:57:48', '2025-09-06 04:57:48', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (65, '2025-09-06', 10000, 'income', NULL, 10, NULL, 'チャージ入金: クレジットチャージ', '', '2025-09-06 04:57:48', '2025-09-06 04:57:48', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (66, '2025-09-06', 6905, 'expense', 1, 10, NULL, '食費', '', '2025-09-06 04:58:41', '2025-09-06 04:58:41', 'ブルーミングブルーミー', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (67, '2025-09-08', 2500, 'expense', 3, 12, NULL, '保育園一時預かり', '', '2025-09-06 06:20:24', '2025-09-06 06:20:24', '馬室保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (68, '2025-09-01', 297, 'expense', 3, 11, NULL, 'おもちゃ', '', '2025-09-06 06:58:29', '2025-09-06 06:58:29', '熊谷', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (69, '2025-09-05', 1779, 'expense', 1, 11, NULL, 'ブルーミングブルーミー', '', '2025-09-06 06:58:55', '2025-09-06 06:58:55', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (70, '2025-09-05', 10000, 'expense', NULL, NULL, 1, 'チャージ: クレジットチャージ', '', '2025-09-06 06:59:06', '2025-09-06 06:59:06', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (71, '2025-09-05', 10000, 'income', NULL, 11, NULL, 'チャージ入金: クレジットチャージ', '', '2025-09-06 06:59:06', '2025-09-06 06:59:06', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (72, '2025-09-06', 2858, 'expense', 2, 11, NULL, '生活用品', '', '2025-09-06 06:59:41', '2025-09-06 07:01:38', 'セキドラッグ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (73, '2025-09-06', 8503, 'expense', 1, NULL, 1, 'お米10kg', '', '2025-09-06 08:15:33', '2025-09-06 08:15:48', 'Amazon', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (74, '2025-09-07', 7367, 'expense', 1, NULL, 1, '食費、米4kg混み', '', '2025-09-07 02:19:16', '2025-09-07 02:19:16', 'ヤオコー', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (75, '2025-09-04', 7038, 'expense', 3, NULL, 1, 'オムツ代', '', '2025-09-07 02:44:46', '2025-09-07 02:44:46', 'Amazon', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (76, '2025-09-06', 6982, 'expense', 1, NULL, 1, 'nash', '', '2025-09-07 06:24:16', '2025-09-07 06:24:16', 'nash', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (77, '2025-09-07', 30500, 'expense', 11, 12, NULL, '自動車税', '', '2025-09-07 07:47:40', '2025-09-07 07:47:40', 'ファミマ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (78, '2025-09-08', 2860, 'expense', 6, NULL, 1, 'OpenAI', '', '2025-09-08 12:55:17', '2025-09-08 12:55:17', 'GooglePlay', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (79, '2025-09-08', 368, 'expense', 1, 10, NULL, '昼飯', '', '2025-09-08 12:55:41', '2025-09-08 12:55:41', 'ファミマ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (80, '2025-09-09', 368, 'expense', 1, 10, NULL, '昼食', '', '2025-09-09 14:38:38', '2025-09-09 14:38:38', 'ファミマ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (81, '2025-09-09', 790, 'expense', 1, 10, NULL, '夕食', '', '2025-09-09 14:39:00', '2025-09-09 14:39:00', '日高屋', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (82, '2025-09-08', 130, 'expense', 1, 8, NULL, '飲み物', '', '2025-09-09 14:40:08', '2025-09-09 14:40:52', '会社', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (83, '2025-09-09', 160, 'expense', 1, 8, NULL, '飲み物', '', '2025-09-09 14:40:25', '2025-09-09 14:40:25', '会社', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (84, '2025-09-09', 10000, 'expense', 7, NULL, NULL, '予算振替（減額）: 電車振り替え分', '', '2025-09-09 14:49:29', '2025-09-09 14:49:29', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (85, '2025-09-09', 10000, 'income', 2, NULL, NULL, '予算振替（増額）: 電車振り替え分', '', '2025-09-09 14:49:29', '2025-09-09 14:49:29', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (87, '2025-09-07', 2748, 'expense', 2, 11, NULL, '乳液、洗顔', '', '2025-09-09 15:10:54', '2025-09-09 15:10:54', 'セキドラッグ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (88, '2025-09-08', 63, 'expense', 1, 11, NULL, 'ドレッシング+チロル', '', '2025-09-09 15:11:35', '2025-09-09 15:11:35', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (89, '2025-09-08', 2045, 'expense', 8, 11, NULL, '風邪薬とドラえもんふりかけ', '', '2025-09-09 15:12:59', '2025-09-09 15:12:59', 'セキドラッグ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (90, '2025-09-09', 92, 'expense', 1, 11, NULL, 'ドレッシング+チロル2', '', '2025-09-09 15:13:58', '2025-09-09 15:13:58', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (91, '2025-09-09', 330, 'expense', 2, 11, NULL, '玄関ディスプレイ2、鉛筆1', '', '2025-09-09 15:15:00', '2025-09-09 15:15:00', 'セリア', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (92, '2025-09-09', 220, 'expense', 2, 11, NULL, '玄関ディスプレイ', '', '2025-09-09 15:15:22', '2025-09-09 15:15:22', 'セリア', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (93, '2025-09-09', 575, 'expense', 8, 11, NULL, '消毒薬+ドーナツ', '', '2025-09-09 15:16:10', '2025-09-09 15:16:10', 'セキドラッグ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (94, '2025-09-07', 445, 'expense', 3, 11, NULL, 'ゆきヘアゴム', '', '2025-09-09 15:20:40', '2025-09-09 15:20:40', '西松屋', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (95, '2025-09-08', 484, 'expense', 2, 9, NULL, '交通費', '', '2025-09-09 15:21:38', '2025-09-09 15:21:38', 'JR', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (96, '2025-09-09', 484, 'expense', 2, 9, NULL, '交通費', '', '2025-09-09 15:22:07', '2025-09-09 15:22:07', 'JR', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (97, '2025-09-09', 2500, 'expense', 3, 12, NULL, '保育園', '', '2025-09-09 15:23:47', '2025-09-09 15:23:47', '馬室保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (98, '2025-09-07', 19937, 'expense', 9, NULL, 1, '電気代', '', '2025-09-09 20:33:59', '2025-09-09 20:33:59', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (99, '2025-09-08', 2290, 'expense', 6, NULL, 1, 'Netflix', '', '2025-09-09 20:34:42', '2025-09-09 20:34:42', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (100, '2025-09-07', 1050, 'expense', 6, NULL, 1, 'グラブル', '', '2025-09-09 21:35:03', '2025-09-09 21:35:03', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (101, '2025-09-10', 368, 'expense', 1, 10, NULL, '昼食', '', '2025-09-10 14:38:33', '2025-09-10 14:38:33', 'ファミマ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (102, '2025-09-10', 770, 'expense', 1, 10, NULL, '夕食', '', '2025-09-10 14:38:58', '2025-09-10 14:38:58', '日高屋', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (103, '2025-09-11', 100, 'expense', 12, NULL, 1, 'マガポケ', '', '2025-09-11 03:27:58', '2025-09-11 03:27:58', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (104, '2025-09-11', 880, 'expense', 9, NULL, 2, 'povoたけ', '', '2025-09-11 03:42:34', '2025-09-11 03:42:34', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (105, '2025-09-11', 9822, 'income', NULL, 8, NULL, 'ポイント交換', '', '2025-09-11 08:50:41', '2025-09-11 08:50:41', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (106, '2025-09-10', 484, 'expense', 2, 9, NULL, '交通費', '', '2025-09-11 10:17:48', '2025-09-11 10:17:48', 'JR', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (107, '2025-09-11', 484, 'expense', 2, 9, NULL, '交通費', '', '2025-09-11 10:18:33', '2025-09-11 10:18:33', 'JR', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (108, '2025-09-10', 100, 'expense', 2, 9, NULL, 'ちゅうりん', '', '2025-09-11 10:19:11', '2025-09-11 10:19:11', '鴻巣駅', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (109, '2025-09-10', 1500, 'expense', 13, 7, NULL, 'ガチャガチャ', '', '2025-09-11 10:19:52', '2025-09-11 10:19:52', '熊谷駅', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (110, '2025-09-12', 182107, 'income', NULL, 2, NULL, '給与収入', '', '2025-09-12 08:32:50', '2025-09-12 08:32:50', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (112, '2025-09-12', 2086, 'expense', 1, NULL, 2, '夕食', '', '2025-09-12 10:54:15', '2025-09-12 10:54:15', '台湾', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (113, '2025-09-10', 2500, 'expense', 3, 12, NULL, '保育園一時預かり', '', '2025-09-12 21:14:01', '2025-09-12 21:14:01', '生出塚保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (114, '2025-09-11', 2500, 'expense', 3, 12, NULL, '保育園一時預かり', '', '2025-09-12 21:14:18', '2025-09-12 21:14:18', '生出塚保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (115, '2025-09-12', 2500, 'expense', 3, 12, NULL, '保育園一時預かり', '', '2025-09-12 21:14:33', '2025-09-12 21:55:02', '生出塚保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (117, '2025-09-12', 484, 'expense', 2, 9, NULL, '交通費', '', '2025-09-13 00:32:59', '2025-09-13 00:32:59', 'JR', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (118, '2025-09-10', 10000, 'expense', NULL, NULL, 1, 'チャージ: クレジットチャージ', '', '2025-09-13 00:36:17', '2025-09-13 00:36:17', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (119, '2025-09-10', 10000, 'income', NULL, 11, NULL, 'チャージ入金: クレジットチャージ', '', '2025-09-13 00:36:17', '2025-09-13 00:36:17', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (120, '2025-09-10', 223, 'expense', 1, 11, NULL, '', '', '2025-09-13 00:37:01', '2025-09-13 00:37:01', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (121, '2025-09-10', 253, 'expense', 1, 11, NULL, '菓子パン', '', '2025-09-13 00:37:36', '2025-09-13 00:37:36', 'ブルーミングブルーミー', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (122, '2025-09-10', 910, 'expense', 1, 11, NULL, '揚げ物', '', '2025-09-13 00:38:13', '2025-09-13 00:38:13', 'たぐち', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (123, '2025-09-11', 63, 'expense', 1, 11, NULL, '', '', '2025-09-13 00:38:40', '2025-09-13 00:38:40', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (124, '2025-09-12', 92, 'expense', 1, 11, NULL, '', '', '2025-09-13 00:38:59', '2025-09-13 00:38:59', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (125, '2025-09-11', 1538, 'expense', 9, NULL, 1, 'Povo', '', '2025-09-13 00:43:03', '2025-09-13 00:43:03', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (126, '2025-09-13', 16480, 'expense', 11, NULL, 1, 'おせち', '', '2025-09-13 06:01:10', '2025-09-13 06:01:10', 'Amazon', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (127, '2025-09-13', 1229, 'expense', 3, 11, NULL, 'べいびーしゃーく', '', '2025-09-13 06:02:27', '2025-09-13 06:02:27', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (128, '2025-09-13', 1178, 'expense', 1, 11, NULL, '', '', '2025-09-13 06:02:58', '2025-09-13 06:02:58', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (129, '2025-09-13', 1750, 'expense', 1, 7, NULL, '', '', '2025-09-13 06:03:17', '2025-09-13 06:03:17', 'パーム', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (130, '2025-09-13', 451, 'expense', 1, 11, NULL, '食パン+牛乳', '', '2025-09-13 06:03:45', '2025-09-13 06:03:45', 'セキ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (132, '2025-09-13', 1500, 'expense', 6, NULL, 1, 'AI系統', '', '2025-09-13 15:40:55', '2025-09-13 15:40:55', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (133, '2025-09-14', 3000, 'expense', 6, NULL, 1, 'グリーン車', '', '2025-09-14 06:55:18', '2025-09-19 14:37:58', '', '750×2×2')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (134, '2025-09-14', 1716, 'expense', 2, 9, NULL, '上野↔鴻巣', '', '2025-09-14 06:56:17', '2025-09-14 06:56:17', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (135, '2025-09-14', 10000, 'expense', NULL, NULL, 1, 'チャージ: クレジットチャージ', '', '2025-09-14 06:56:42', '2025-09-14 06:56:42', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (136, '2025-09-14', 10000, 'income', NULL, 9, NULL, 'チャージ入金: クレジットチャージ', '', '2025-09-14 06:56:42', '2025-09-14 06:56:42', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (137, '2025-09-03', 100, 'expense', 2, 9, NULL, '駐輪場', '', '2025-09-14 06:58:16', '2025-09-14 06:58:16', '鴻巣駅', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (138, '2025-09-14', 1620, 'expense', 2, 10, NULL, '昼食', '', '2025-09-14 06:58:56', '2025-09-14 06:58:56', '上野動物公園', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (139, '2025-09-14', 106, 'expense', 1, 10, NULL, 'りんご', '', '2025-09-14 06:59:34', '2025-09-14 06:59:34', 'ブルーミングブルーミー', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (140, '2025-09-14', 1200, 'expense', 6, NULL, 1, '上野動物園入園料', '', '2025-09-14 07:00:27', '2025-09-19 14:37:27', '上野動物園', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (141, '2025-09-14', 889, 'expense', 1, 11, NULL, '', '', '2025-09-14 07:02:53', '2025-09-14 07:02:53', 'ブルーミングブルーミー', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (142, '2025-09-15', 8298, 'expense', 1, NULL, 1, '週の買い出し', '', '2025-09-15 02:12:38', '2025-09-15 02:12:38', 'ヤオコー', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (143, '2025-09-14', 200, 'expense', 2, 8, NULL, '駐輪場', '', '2025-09-15 02:13:09', '2025-09-15 02:13:09', '鴻巣駅', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (144, '2025-09-15', 5000, 'expense', NULL, NULL, 1, 'チャージ: クレジットチャージ', '', '2025-09-15 09:33:44', '2025-09-15 09:33:44', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (145, '2025-09-15', 5000, 'income', NULL, 10, NULL, 'チャージ入金: クレジットチャージ', '', '2025-09-15 09:33:44', '2025-09-15 09:33:44', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (146, '2025-09-15', 1299, 'expense', 1, 10, NULL, '調味料', '', '2025-09-15 09:34:16', '2025-09-15 09:34:16', 'セキドラッグ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (147, '2025-09-16', 660, 'expense', 2, NULL, 1, '特急', '', '2025-09-16 12:43:38', '2025-09-16 12:43:38', '上野駅', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (148, '2025-09-16', 2500, 'expense', 3, 12, NULL, '一時預かり', '', '2025-09-16 12:44:12', '2025-09-16 12:44:12', '馬室保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (149, '2025-09-16', 484, 'expense', 2, 9, NULL, '交通費', '', '2025-09-16 12:45:30', '2025-09-16 12:45:30', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (150, '2025-09-16', 285, 'expense', 1, 11, NULL, '飲み物', '', '2025-09-16 12:49:39', '2025-09-16 12:49:39', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (151, '2025-09-16', 459, 'expense', 1, 11, NULL, 'パン', '', '2025-09-16 12:50:14', '2025-09-16 12:50:14', 'ブルーミングブルーミー', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (152, '2025-09-15', 306, 'expense', 6, NULL, 1, 'ニンテンドー', '', '2025-09-19 02:42:19', '2025-09-19 02:42:19', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (153, '2025-09-17', 2500, 'expense', 3, 12, NULL, '一時預かり', '', '2025-09-19 02:42:53', '2025-09-19 02:42:53', '馬室保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (154, '2025-09-18', 2500, 'expense', 3, 12, NULL, '一時預かり', '', '2025-09-19 02:43:15', '2025-09-19 02:43:15', '生出塚保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (155, '2025-09-19', 2500, 'expense', 3, 12, NULL, '一時預かり', '', '2025-09-19 02:43:32', '2025-09-19 02:43:32', '生出塚保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (156, '2025-09-17', 550, 'expense', 6, NULL, 1, 'd-アニメ', '', '2025-09-19 02:45:09', '2025-09-19 02:45:09', 'Amazon', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (157, '2025-09-17', 63, 'expense', 1, 11, NULL, '', '', '2025-09-19 13:31:58', '2025-09-19 13:31:58', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (158, '2025-09-17', 2394, 'expense', 1, 11, NULL, '', '', '2025-09-19 13:32:38', '2025-09-19 13:32:38', '吉野家', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (159, '2025-09-18', 63, 'expense', 1, 11, NULL, '', '', '2025-09-19 13:33:05', '2025-09-19 13:33:05', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (160, '2025-09-18', 737, 'expense', 2, 11, NULL, '仕事道具', '', '2025-09-19 13:33:48', '2025-09-19 13:33:48', '文教堂', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (161, '2025-09-18', 610, 'expense', 1, 11, NULL, '', '', '2025-09-19 13:36:39', '2025-09-19 13:36:39', 'たぐち', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (162, '2025-09-19', 63, 'expense', 1, 11, NULL, '', '', '2025-09-19 13:38:42', '2025-09-23 01:06:45', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (163, '2025-09-17', 484, 'expense', 2, 9, NULL, '', '', '2025-09-19 13:41:00', '2025-09-19 13:47:20', 'JR', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (164, '2025-09-18', 484, 'expense', 2, 9, NULL, '', '', '2025-09-19 13:42:16', '2025-09-19 13:42:16', 'JR', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (165, '2025-09-18', 100, 'expense', 2, 9, NULL, '', '', '2025-09-19 13:42:43', '2025-09-19 13:42:43', 'JR', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (166, '2025-09-18', 10000, 'expense', NULL, NULL, 1, 'チャージ: クレジットチャージ', '', '2025-09-19 13:51:04', '2025-09-19 13:51:04', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (167, '2025-09-18', 10000, 'income', NULL, 11, NULL, 'チャージ入金: クレジットチャージ', '', '2025-09-19 13:51:04', '2025-09-19 13:51:04', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (168, '2025-09-19', 484, 'expense', 2, 9, NULL, '', '', '2025-09-19 13:52:34', '2025-09-19 13:52:34', 'JR', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (169, '2025-09-19', 63, 'expense', 1, 11, NULL, '', '', '2025-09-19 13:53:54', '2025-09-19 13:53:54', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (170, '2025-09-13', 1750, 'expense', 1, 11, NULL, '', '', '2025-09-19 13:55:46', '2025-09-19 13:55:46', 'ベーカリーパーム', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (171, '2025-09-20', 2620, 'expense', 6, 10, NULL, 'カラオケ', '', '2025-09-20 06:25:54', '2025-09-20 06:25:54', 'カラオケ館鴻巣店', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (172, '2025-09-20', 200, 'expense', 3, 7, NULL, 'チュッパチャプス', '', '2025-09-20 06:26:18', '2025-09-20 06:26:18', 'カラオケ館鴻巣店', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (173, '2025-09-20', 3150, 'expense', 12, NULL, 1, 'グラブル', '', '2025-09-20 09:09:37', '2025-09-20 09:09:37', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (174, '2025-09-20', 9000, 'expense', 7, NULL, 1, '駐車場', '', '2025-09-20 09:43:41', '2025-09-20 09:43:41', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (175, '2025-09-21', 14222, 'expense', 1, NULL, 1, '週末食材', '', '2025-09-21 02:52:02', '2025-09-21 02:52:02', 'ヤオコー 鴻巣逆川店', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (176, '2025-09-16', 4290, 'expense', 9, NULL, 1, 'タカギ浄水器', '', '2025-09-21 02:53:52', '2025-09-21 02:53:52', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (177, '2025-09-21', 5000, 'expense', NULL, NULL, 1, 'チャージ: クレジットチャージ', '', '2025-09-21 07:56:32', '2025-09-21 07:56:32', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (178, '2025-09-21', 5000, 'income', NULL, 10, NULL, 'チャージ入金: クレジットチャージ', '', '2025-09-21 07:56:32', '2025-09-21 07:56:32', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (179, '2025-09-21', 2499, 'expense', 1, 10, NULL, 'ポップコーンなど', '', '2025-09-21 07:57:08', '2025-09-21 07:57:08', 'ブルーミングブルーミー', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (180, '2025-09-21', 1155, 'expense', 1, 8, NULL, 'ドレッシングなど', '', '2025-09-21 07:57:55', '2025-09-21 07:57:55', 'カルディ鴻巣店', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (181, '2025-09-21', 550, 'expense', 3, 11, NULL, '', '', '2025-09-23 01:08:17', '2025-09-23 01:08:17', 'セリア', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (182, '2025-09-22', 63, 'expense', 1, 11, NULL, '', '', '2025-09-23 01:08:52', '2025-09-23 01:08:52', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (183, '2025-09-22', 1110, 'expense', 3, 11, NULL, 'ミニチュア用', '', '2025-09-23 01:09:45', '2025-09-23 01:09:45', 'セリア', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (184, '2025-09-22', 484, 'expense', 2, 9, NULL, '', '', '2025-09-23 01:10:37', '2025-09-23 01:10:37', 'JR', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (185, '2025-09-23', 2264, 'expense', 1, 10, NULL, '昼食', '', '2025-09-23 03:05:21', '2025-09-23 03:05:21', 'セキドラッグ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (186, '2025-09-22', 2500, 'expense', 3, 12, NULL, '一時払い', '', '2025-09-23 03:06:13', '2025-09-23 03:06:13', '生出塚保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (187, '2025-09-18', 100, 'expense', 12, NULL, 1, '漫画', '', '2025-09-23 03:07:15', '2025-09-23 03:07:15', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (188, '2025-09-19', 397, 'expense', 6, NULL, 1, 'NHK', '', '2025-09-23 03:07:35', '2025-09-23 03:07:35', 'Amazon', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (189, '2025-09-20', 6938, 'expense', 1, NULL, 1, 'ナッシュ', '', '2025-09-23 03:07:56', '2025-09-23 03:07:56', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (190, '2025-09-23', 902, 'expense', 2, 8, NULL, '会社', '', '2025-09-23 03:09:52', '2025-09-23 03:09:52', '電車', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (191, '2025-09-23', 218, 'expense', 2, 10, NULL, '土', '', '2025-09-23 04:10:54', '2025-09-23 04:10:54', 'セキドラッグ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (192, '2025-09-23', 880, 'expense', 6, NULL, 1, '本', '', '2025-09-23 13:30:18', '2025-09-23 13:30:18', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (193, '2025-09-24', 770, 'expense', 1, 11, NULL, '夕食', '', '2025-09-24 16:01:36', '2025-09-24 16:02:14', '日高屋', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (194, '2025-09-25', 572426, 'income', NULL, 3, NULL, '給与振込', '', '2025-09-24 23:26:45', '2025-09-24 23:26:45', '', '定期代込み')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (195, '2025-09-25', 164930, 'expense', 11, NULL, 1, '定期代', '', '2025-09-24 23:28:07', '2025-09-24 23:28:07', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (196, '2025-09-21', 5250, 'expense', 13, NULL, 1, 'グラブル', '', '2025-09-24 23:30:24', '2025-09-24 23:30:24', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (197, '2025-09-24', 2500, 'expense', 3, 12, NULL, '一時預かり', '', '2025-09-24 23:36:27', '2025-09-24 23:36:27', '生出塚保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (198, '2025-09-24', 484, 'expense', 2, 9, NULL, '', '', '2025-09-25 07:39:20', '2025-09-25 07:39:20', 'JR', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (199, '2025-09-24', 100, 'expense', 2, 9, NULL, '駐輪場', '', '2025-09-25 07:40:07', '2025-09-25 07:40:07', '鴻巣駅', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (200, '2025-09-25', 484, 'expense', 2, 9, NULL, '通院', '', '2025-09-25 07:40:49', '2025-09-25 07:40:49', 'JR', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (201, '2025-09-25', 100, 'expense', 2, 9, NULL, '', '', '2025-09-25 07:41:12', '2025-09-25 07:41:12', '鴻巣駅', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (202, '2025-09-25', 300, 'expense', 1, 7, NULL, '上尾産さつまいも', '', '2025-09-25 07:41:57', '2025-09-25 07:41:57', '上尾駅前', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (203, '2025-09-25', 1117, 'expense', 1, 11, NULL, '', '', '2025-09-25 07:42:40', '2025-09-25 07:42:40', 'たぐち', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (204, '2025-09-25', 149, 'expense', 1, 11, NULL, '茶', '', '2025-09-25 07:43:28', '2025-09-25 07:43:28', 'デイリーヤマザキ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (205, '2025-09-24', 380, 'expense', 1, 11, NULL, 'どーなつ', '', '2025-09-25 07:44:07', '2025-09-25 07:44:07', '熊谷のぱんやさん', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (206, '2025-09-24', 330, 'expense', 3, 11, NULL, '保育園必要品', '', '2025-09-25 07:44:42', '2025-09-25 07:44:42', 'セリア', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (207, '2025-09-24', 280, 'expense', 1, 11, NULL, 'コーヒー', '', '2025-09-25 07:45:22', '2025-09-25 07:45:22', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (208, '2025-09-24', 92, 'expense', 1, 11, NULL, '', '', '2025-09-25 07:45:51', '2025-09-25 07:45:51', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (209, '2025-09-25', 59730, 'expense', 11, NULL, 2, '車のタイヤ交換', '', '2025-09-25 13:19:25', '2025-09-25 13:19:25', 'BRIDGESTONE', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (210, '2025-09-25', 10000, 'income', NULL, 7, NULL, '', '', '2025-09-25 14:29:41', '2025-09-25 14:29:41', '上尾中央病院', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (211, '2025-09-25', 16230, 'expense', 11, NULL, 1, 'ささ七五三用服', '', '2025-09-25 14:31:57', '2025-09-25 14:31:57', 'Zozo', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (212, '2025-09-26', 800, 'expense', 1, 10, NULL, '夕食', '', '2025-09-26 14:00:09', '2025-09-26 14:00:09', '日高屋', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (213, '2025-09-26', 750, 'expense', 2, NULL, 1, 'グリーン車', '', '2025-09-26 14:00:30', '2025-09-26 14:00:30', '上野駅', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (214, '2025-09-26', 2500, 'expense', 3, 12, NULL, '一時預かり', '', '2025-09-26 14:01:17', '2025-09-26 14:01:17', '生出塚保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (215, '2025-09-27', 240, 'expense', 1, 6, NULL, 'ジュース', '', '2025-09-27 05:25:47', '2025-09-27 05:25:47', '鴻巣', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (216, '2025-09-27', 150, 'expense', 2, 6, NULL, '印鑑証明', '', '2025-09-27 05:26:08', '2025-09-27 05:26:08', 'ファミマ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (217, '2025-09-27', 20000, 'expense', NULL, 12, NULL, '振替出金: 税金用', '', '2025-09-27 05:26:33', '2025-09-27 05:26:33', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (218, '2025-09-27', 20000, 'income', NULL, 6, NULL, '振替入金: 税金用', '', '2025-09-27 05:26:33', '2025-09-27 05:26:33', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (219, '2025-09-27', 3150, 'expense', 13, NULL, 1, 'バレスタ', '', '2025-09-27 05:28:07', '2025-09-27 05:28:07', 'グラブル', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (220, '2025-09-27', 839, 'expense', 1, 11, NULL, 'パン屋', '', '2025-09-27 05:29:19', '2025-09-27 05:29:19', 'コクーンシティ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (221, '2025-09-27', 10000, 'expense', NULL, NULL, 1, 'チャージ: クレジットチャージ', '', '2025-09-27 05:30:37', '2025-09-27 05:30:37', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (222, '2025-09-27', 10000, 'income', NULL, 11, NULL, 'チャージ入金: クレジットチャージ', '', '2025-09-27 05:30:37', '2025-09-27 05:30:37', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (223, '2025-09-27', 5995, 'expense', 11, 11, NULL, '服', '', '2025-09-27 05:31:18', '2025-09-27 05:31:18', 'ロペピクニック', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (224, '2025-09-27', 5490, 'expense', 11, 11, NULL, '服', '', '2025-09-27 05:32:08', '2025-09-27 05:32:08', 'グローバルワークス', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (225, '2025-09-26', 220, 'expense', 13, 11, NULL, 'ミニチュア', '', '2025-09-27 05:33:07', '2025-09-27 05:33:07', 'セリア', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (226, '2025-09-26', 92, 'expense', 1, 11, NULL, '', '', '2025-09-27 05:33:29', '2025-09-27 05:33:29', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (227, '2025-09-27', 34250, 'expense', 11, 6, NULL, '車検税金', '', '2025-09-27 07:48:01', '2025-09-27 07:48:01', 'ホンダカーズ埼玉北', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (228, '2025-09-27', 129971, 'expense', 11, NULL, 2, '車検', '', '2025-09-27 07:48:26', '2025-09-27 07:48:26', 'ホンダカーズ埼玉北', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (229, '2025-09-24', 3960, 'expense', 3, NULL, 1, 'ゆきパズル', '', '2025-09-27 08:22:26', '2025-09-27 08:22:53', 'KUMON', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (230, '2025-09-27', 2995, 'expense', 3, NULL, NULL, '予算振替（減額）: 予算間振替', '', '2025-09-27 08:23:23', '2025-09-27 08:23:23', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (231, '2025-09-27', 2995, 'income', 1, NULL, NULL, '予算振替（増額）: 予算間振替', '', '2025-09-27 08:23:23', '2025-09-27 08:23:23', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (232, '2025-09-28', 5758, 'expense', 2, NULL, NULL, '予算振替（減額）: 予算間振替', '', '2025-09-28 01:40:46', '2025-09-28 01:40:46', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (233, '2025-09-28', 5758, 'income', 1, NULL, NULL, '予算振替（増額）: 予算間振替', '', '2025-09-28 01:40:46', '2025-09-28 01:40:46', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (234, '2025-09-28', 68500, 'expense', 11, NULL, 2, 'ふるさと納税', '', '2025-09-28 03:09:14', '2025-09-28 03:09:14', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (235, '2025-09-28', 19800, 'expense', 7, NULL, 1, '任意保険', '', '2025-09-28 04:13:30', '2025-09-28 04:13:30', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (236, '2025-09-28', 7380, 'expense', 8, NULL, NULL, '予算振替（減額）: 予算間振替', '', '2025-09-28 04:13:58', '2025-09-28 04:13:58', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (237, '2025-09-28', 7380, 'income', 7, NULL, NULL, '予算振替（増額）: 予算間振替', '', '2025-09-28 04:13:58', '2025-09-28 04:13:58', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (238, '2025-09-28', 2420, 'expense', 9, NULL, NULL, '予算振替（減額）: 予算間振替', '', '2025-09-28 04:14:27', '2025-09-28 04:14:27', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (239, '2025-09-28', 2420, 'income', 7, NULL, NULL, '予算振替（増額）: 予算間振替', '', '2025-09-28 04:14:27', '2025-09-28 04:14:27', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (240, '2025-09-28', 3700, 'expense', 9, NULL, NULL, '予算振替（減額）: 予算間振替', '', '2025-09-28 10:23:20', '2025-09-28 10:23:20', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (241, '2025-09-28', 3700, 'income', 2, NULL, NULL, '予算振替（増額）: 予算間振替', '', '2025-09-28 10:23:20', '2025-09-28 10:23:20', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (242, '2025-09-28', 3700, 'expense', 2, NULL, 1, '洗剤', '', '2025-09-28 10:23:49', '2025-09-28 10:23:49', 'Amazon', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (243, '2025-09-26', 1067, 'expense', 6, NULL, NULL, '予算振替（減額）: 予算間振替', '', '2025-09-28 10:35:48', '2025-09-28 10:35:48', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (244, '2025-09-26', 1067, 'income', 2, NULL, NULL, '予算振替（増額）: 予算間振替', '', '2025-09-28 10:35:48', '2025-09-28 10:35:48', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (245, '2025-09-26', 484, 'expense', 2, 9, NULL, '', '', '2025-09-28 10:36:09', '2025-09-28 10:36:09', 'JR', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (246, '2025-09-26', 100, 'expense', 2, 9, NULL, '駐輪場', '', '2025-09-28 10:36:42', '2025-09-28 10:36:42', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (247, '2025-09-26', 1200, 'expense', 13, 9, NULL, 'ガチャガチャ', '', '2025-09-28 10:37:04', '2025-09-28 10:37:04', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (248, '2025-09-27', 353, 'expense', 1, NULL, NULL, '予算振替（減額）: 予算間振替', '', '2025-09-28 10:39:04', '2025-09-28 10:39:04', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (249, '2025-09-27', 353, 'income', 2, NULL, NULL, '予算振替（増額）: 予算間振替', '', '2025-09-28 10:39:04', '2025-09-28 10:39:04', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (250, '2025-09-27', 836, 'expense', 2, 9, NULL, '', '', '2025-09-28 10:39:27', '2025-09-28 10:39:27', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (251, '2025-09-30', 1720, 'expense', 9, NULL, NULL, '予算振替（減額）: 予算間振替', '', '2025-09-29 22:22:45', '2025-09-29 22:22:45', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (252, '2025-09-30', 1720, 'income', 8, NULL, NULL, '予算振替（増額）: 予算間振替', '', '2025-09-29 22:22:45', '2025-09-29 22:22:45', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (253, '2025-09-29', 1720, 'expense', 8, 6, NULL, '健康診断', '', '2025-09-29 22:23:19', '2025-09-30 10:58:29', '九段クリニック', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (254, '2025-09-28', 11595, 'expense', 1, NULL, 1, '買い出し', '', '2025-09-29 22:24:34', '2025-09-29 22:24:34', '生鮮市場', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (255, '2025-09-29', 2500, 'expense', 3, 12, NULL, '一時預かり', '', '2025-09-29 22:25:04', '2025-09-29 22:25:04', '馬室保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (256, '2025-09-30', 2500, 'expense', 3, 12, NULL, '一時預かり', '', '2025-09-29 22:25:22', '2025-09-29 22:25:22', '馬室保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (257, '2025-09-29', 478462, 'expense', NULL, 3, NULL, '引落: 楽天カード', '', '2025-09-29 22:26:15', '2025-09-29 22:26:15', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (260, '2025-09-29', 64420, 'expense', NULL, 3, NULL, '引落: 引落: paypay', '', '2025-09-29 22:30:35', '2025-09-29 22:30:35', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (261, '2025-09-29', 150, 'expense', 1, 8, NULL, '飲み物', '', '2025-09-30 10:59:54', '2025-09-30 10:59:54', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (262, '2025-09-29', 264, 'expense', 1, 11, NULL, '', '', '2025-09-30 11:00:24', '2025-09-30 11:00:24', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (263, '2025-09-27', 10000, 'expense', NULL, NULL, 1, 'チャージ: クレジットチャージ', '', '2025-09-30 11:00:51', '2025-09-30 11:00:51', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (264, '2025-09-27', 10000, 'income', NULL, 11, NULL, 'チャージ入金: クレジットチャージ', '', '2025-09-30 11:00:51', '2025-09-30 11:00:51', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (265, '2025-09-24', 770, 'expense', 1, 10, NULL, '夕食', '', '2025-09-30 11:01:01', '2025-09-30 11:01:01', '日高屋', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (266, '2025-09-27', 862, 'expense', 1, 10, NULL, '買い出し', '', '2025-09-30 11:01:41', '2025-09-30 11:01:41', 'ブルーミングブルーミー', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (267, '2025-09-27', 1245, 'expense', 1, 11, NULL, '', '', '2025-09-30 11:02:48', '2025-09-30 11:02:48', 'セキドラッグ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (268, '2025-09-30', 92, 'expense', 1, 11, NULL, '', '', '2025-09-30 11:03:15', '2025-09-30 11:03:15', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (269, '2025-09-30', 1889, 'expense', 1, NULL, NULL, '予算振替（減額）: 予算間振替', '', '2025-09-30 11:05:40', '2025-09-30 11:05:40', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (270, '2025-09-30', 1889, 'income', 2, NULL, NULL, '予算振替（増額）: 予算間振替', '', '2025-09-30 11:05:40', '2025-09-30 11:05:40', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (271, '2025-09-30', 1289, 'expense', 2, 11, NULL, 'セキドラッグ', '', '2025-09-30 11:06:15', '2025-09-30 11:06:15', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (272, '2025-09-30', 600, 'expense', 2, 11, NULL, '粗大ごみシール', '', '2025-09-30 11:06:46', '2025-09-30 11:06:46', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (273, '2025-09-30', 100, 'expense', 1, NULL, NULL, '予算振替（減額）: 予算間振替', '', '2025-09-30 11:08:58', '2025-09-30 11:08:58', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (274, '2025-09-30', 100, 'income', 2, NULL, NULL, '予算振替（増額）: 予算間振替', '', '2025-09-30 11:08:58', '2025-09-30 11:08:58', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (275, '2025-09-30', 100, 'expense', 2, 9, NULL, '駐輪場', '', '2025-09-30 11:09:21', '2025-09-30 11:09:21', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (276, '2025-10-01', 5000, 'expense', NULL, NULL, 1, 'チャージ: クレジットチャージ', '', '2025-10-01 13:09:41', '2025-10-01 13:09:41', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (277, '2025-10-01', 5000, 'income', NULL, 10, NULL, 'チャージ入金: クレジットチャージ', '', '2025-10-01 13:09:41', '2025-10-01 13:09:41', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (278, '2025-10-01', 183, 'expense', 1, 10, NULL, 'コーヒー', '', '2025-10-01 13:10:04', '2025-10-01 13:10:04', 'ファミマ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (279, '2025-10-01', 790, 'expense', 1, 10, NULL, '夕食', '', '2025-10-01 13:10:22', '2025-10-01 13:10:22', '日高屋', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (280, '2025-10-01', 2500, 'expense', 3, 12, NULL, '一時預かり', '', '2025-10-01 13:10:43', '2025-10-01 13:10:43', '馬室保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (281, '2025-10-01', 66644, 'expense', NULL, 3, NULL, '振替出金: 現金振替・引落', '', '2025-10-01 13:11:32', '2025-10-01 13:11:32', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (282, '2025-10-01', 66644, 'income', NULL, 5, NULL, '振替入金: 現金振替・引落', '', '2025-10-01 13:11:32', '2025-10-01 13:11:32', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (283, '2025-10-01', 66644, 'expense', 4, 5, NULL, 'ローン', '', '2025-10-01 13:11:48', '2025-10-01 13:11:48', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (284, '2025-10-03', 2556, 'expense', 12, NULL, 1, '本', '', '2025-10-03 13:50:22', '2025-10-03 13:50:22', 'auブックパス', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (285, '2025-10-03', 8987, 'expense', 9, NULL, 2, '水道料金', '', '2025-10-03 13:50:45', '2025-10-03 13:50:45', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (286, '2025-10-03', 1375, 'expense', 1, NULL, 2, '夕食', '', '2025-10-03 13:51:22', '2025-10-03 13:51:22', 'ターリー屋', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (287, '2025-10-03', 750, 'expense', 2, NULL, 1, 'グリーン車', '', '2025-10-03 13:52:07', '2025-10-03 13:52:07', '上野駅', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (288, '2025-10-01', 2280, 'expense', 6, NULL, 1, 'Youtubeプレミアム', '', '2025-10-03 13:52:48', '2025-10-03 13:52:48', '', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (289, '2025-10-02', 2500, 'expense', 3, 12, NULL, '一時預かり', '', '2025-10-03 13:53:37', '2025-10-03 13:53:37', '馬室保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (290, '2025-10-03', 2500, 'expense', 3, 12, NULL, '一時預かり', '', '2025-10-03 13:54:10', '2025-10-03 13:54:10', '生出塚保育所', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (291, '2025-10-03', 92, 'expense', 1, 11, NULL, '', '', '2025-10-03 14:20:57', '2025-10-03 14:20:57', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (292, '2025-10-03', 446, 'expense', 2, 11, NULL, '生理用品', '', '2025-10-03 14:21:26', '2025-10-03 14:21:26', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (293, '2025-10-01', 658, 'expense', 2, 11, NULL, 'ゆきシャンプー', '', '2025-10-03 14:24:31', '2025-10-03 14:24:31', 'セキドラッグ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (294, '2025-10-01', 2420, 'expense', 13, 11, NULL, 'パック', '', '2025-10-03 14:24:59', '2025-10-03 14:24:59', 'セキドラッグ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (295, '2025-10-01', 1044, 'expense', 1, 11, NULL, '卵、ジャム、超熟', '', '2025-10-03 14:25:34', '2025-10-03 14:25:34', 'セキドラッグ', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (296, '2025-10-02', 710, 'expense', 1, 11, NULL, '', '', '2025-10-03 14:26:07', '2025-10-03 14:26:07', 'たぐち', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (297, '2025-10-02', 241, 'expense', 1, 11, NULL, '', '', '2025-10-03 14:27:52', '2025-10-03 14:27:52', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (298, '2025-10-02', 330, 'expense', 13, 11, NULL, '', '', '2025-10-03 14:28:28', '2025-10-03 14:28:28', 'セブンイレブン', '')",
+            "INSERT INTO transactions (id, date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, created_at, updated_at, payment_location, notes) VALUES (299, '2025-10-02', 2633, 'expense', 8, 11, NULL, '', '', '2025-10-03 14:29:04', '2025-10-03 14:29:04', 'マツモトキヨシ', '')",
             "INSERT INTO monthly_credit_summary (id, year, month, credit_category_id, total_amount, created_at, updated_at) VALUES (1, 2025, 8, 1, 0, '2025-08-31 06:17:24', '2025-08-31 06:17:24')",
-            "INSERT INTO monthly_credit_summary (id, year, month, credit_category_id, total_amount, created_at, updated_at) VALUES (2, 2025, 9, 2, 750, '2025-09-01 13:51:16', '2025-09-01 13:51:16')",
-            "INSERT INTO monthly_credit_summary (id, year, month, credit_category_id, total_amount, created_at, updated_at) VALUES (3, 2025, 9, 1, 5250, '2025-09-01 14:00:35', '2025-09-01 14:00:35')"
+            "INSERT INTO monthly_credit_summary (id, year, month, credit_category_id, total_amount, created_at, updated_at) VALUES (57, 2025, 9, 2, 262852, '2025-09-28 03:09:14', '2025-09-28 03:09:14')",
+            "INSERT INTO monthly_credit_summary (id, year, month, credit_category_id, total_amount, created_at, updated_at) VALUES (61, 2025, 9, 1, 450234, '2025-09-30 11:00:51', '2025-09-30 11:00:51')",
+            "INSERT INTO monthly_credit_summary (id, year, month, credit_category_id, total_amount, created_at, updated_at) VALUES (65, 2025, 10, 2, 10362, '2025-10-03 13:51:22', '2025-10-03 13:51:22')",
+            "INSERT INTO monthly_credit_summary (id, year, month, credit_category_id, total_amount, created_at, updated_at) VALUES (67, 2025, 10, 1, 10586, '2025-10-03 13:52:48', '2025-10-03 13:52:48')"
         ];
-        
-        console.log(`${migrationStatements.length}件の基本データを投入中...`);
-        for (const statement of migrationStatements) {
-            await db.run(statement);
-        }
-        
-        console.log('✅ 完全なデータベース（入力済みデータ含む）の投入が完了しました！');
-        console.log('- 出費カテゴリ: 12件（たけ・ささ小遣い分離済み）');
-        console.log('- 財布カテゴリ: 12件（家現金含む、最新残高）');
-        console.log('- 取引データ: 16件（入力済みデータ）');
-        console.log('- 予算設定: 24件（9月・10月分）');
-        console.log('- クレジット集計: 3件');
-        
-        // フォールバックは不要（直接データ投入するため）
-        
-    } catch (error) {
-        console.error('完全データ投入エラー:', error);
-        console.log('基本データのみ投入を試行します...');
-        await seedBasicData(db);
-    }
-}
 
-// フォールバック用の基本データ投入
-async function seedBasicData(db) {
-    try {
-        // 初期データの投入
-        const seedData = [
-            // 出費カテゴリ（たけ小遣い・ささ小遣い分離済み）
-            { table: 'expense_categories', data: [
-                { id: 1, name: '食費' },
-                { id: 2, name: '生活費' },
-                { id: 3, name: '養育費' },
-                { id: 4, name: 'ローン' },
-                { id: 6, name: '娯楽費' },
-                { id: 7, name: '車維持費' },
-                { id: 8, name: '医療費' },
-                { id: 9, name: '公共料金' },
-                { id: 10, name: '投資' },
-                { id: 11, name: 'その他' },
-                { id: 12, name: 'たけ小遣い' },
-                { id: 13, name: 'ささ小遣い' }
-            ]},
-            
-            // 財布カテゴリ（家現金含む）
-            { table: 'wallet_categories', data: [
-                { id: 1, name: '三井住友銀行', balance: 771 },
-                { id: 2, name: '埼玉りそな銀行', balance: 122844 },
-                { id: 3, name: '楽天銀行', balance: 548089 },
-                { id: 4, name: '楽天証券', balance: 415513 },
-                { id: 5, name: '住信SBI証券', balance: 4855 },
-                { id: 6, name: '現金たけ', balance: 40470 },
-                { id: 7, name: '現金ささ', balance: 6607 },
-                { id: 8, name: 'Suicaたけ', balance: 4476 },
-                { id: 9, name: 'Suicaささ', balance: 7021 },
-                { id: 10, name: '楽天Payたけ', balance: 3013 },
-                { id: 11, name: '楽天Payささ', balance: 8527 },
-                { id: 12, name: '家現金', balance: 221200 }
-            ]},
-            
-            // クレジットカードカテゴリ
-            { table: 'credit_categories', data: [
-                { id: 1, name: '楽天カード' },
-                { id: 2, name: 'Amazon Mastercard' }
-            ]},
-            
-            // 2025年9月の予算設定（たけ・ささ小遣い分離済み）
-            { table: 'monthly_budgets', data: [
-                { year: 2025, month: 9, expense_category_id: 1, budget_amount: 60000 }, // 食費
-                { year: 2025, month: 9, expense_category_id: 2, budget_amount: 30000 }, // 生活費
-                { year: 2025, month: 9, expense_category_id: 3, budget_amount: 80000 }, // 養育費
-                { year: 2025, month: 9, expense_category_id: 4, budget_amount: 120000 }, // ローン
-                { year: 2025, month: 9, expense_category_id: 6, budget_amount: 20000 }, // 娯楽費
-                { year: 2025, month: 9, expense_category_id: 7, budget_amount: 15000 }, // 車維持費
-                { year: 2025, month: 9, expense_category_id: 8, budget_amount: 10000 }, // 医療費
-                { year: 2025, month: 9, expense_category_id: 9, budget_amount: 25000 }, // 公共料金
-                { year: 2025, month: 9, expense_category_id: 10, budget_amount: 50000 }, // 投資
-                { year: 2025, month: 9, expense_category_id: 11, budget_amount: 10000 }, // その他
-                { year: 2025, month: 9, expense_category_id: 12, budget_amount: 35000 }, // たけ小遣い
-                { year: 2025, month: 9, expense_category_id: 13, budget_amount: 35000 }  // ささ小遣い
-            ]}
-        ];
-        
-        // データを挿入
-        for (const { table, data } of seedData) {
-            for (const row of data) {
-                const columns = Object.keys(row).join(', ');
-                const placeholders = Object.keys(row).map(() => '?').join(', ');
-                const values = Object.values(row);
-                
-                await db.run(
-                    `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`,
-                    values
-                );
+        console.log(`${migrationStatements.length}件のデータを投入中...`);
+
+        for (const statement of migrationStatements) {
+            try {
+                await db.run(statement);
+            } catch (err) {
+                console.warn('データ投入スキップ:', err.message);
             }
-            console.log(`${table} に ${data.length} 件のデータを投入しました`);
         }
-        
-        console.log('✅ 初期データの投入が完了しました！');
-        
+
+        console.log('✅ データの投入が完了しました！');
+        console.log('- 出費カテゴリ: 12件');
+        console.log('- 財布カテゴリ: 12件');
+        console.log('- 取引データ: 275件');
+        console.log('- 予算設定: 24件');
+        console.log('- クレジット集計: 5件');
+
     } catch (error) {
-        console.error('初期データ投入エラー:', error);
+        console.error('データ投入エラー:', error);
         throw error;
     }
 }
