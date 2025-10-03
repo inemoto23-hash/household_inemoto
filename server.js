@@ -253,7 +253,12 @@ app.get('/api/expense-categories', async (req, res) => {
 app.get('/api/wallet-categories', async (req, res) => {
     try {
         const wallets = await db.all('SELECT * FROM wallet_categories ORDER BY name');
-        res.json(wallets);
+        // PostgreSQLのDECIMAL型は文字列として返されるため数値に変換
+        const walletsWithBalance = wallets.map(wallet => ({
+            ...wallet,
+            balance: parseFloat(wallet.balance) || 0
+        }));
+        res.json(walletsWithBalance);
     } catch (error) {
         res.status(500).json({ error: '財布カテゴリの取得に失敗しました' });
     }
@@ -1269,7 +1274,20 @@ app.get('/api/summary/:year/:month', async (req, res) => {
             [year, month]
         );
 
-        res.json({ expenseSummary, creditSummary });
+        // PostgreSQLのDECIMAL型を数値に変換
+        const expenseSummaryParsed = expenseSummary.map(item => ({
+            ...item,
+            total: parseFloat(item.total) || 0,
+            budget: parseFloat(item.budget) || 0,
+            remaining: parseFloat(item.remaining) || 0
+        }));
+
+        const creditSummaryParsed = creditSummary.map(item => ({
+            ...item,
+            total: parseFloat(item.total) || 0
+        }));
+
+        res.json({ expenseSummary: expenseSummaryParsed, creditSummary: creditSummaryParsed });
     } catch (error) {
         console.error('集計エラー:', error);
         res.status(500).json({ error: '集計の取得に失敗しました' });
@@ -1476,14 +1494,35 @@ app.get('/api/stats/:year/:month?', async (req, res) => {
             WHERE ${dateCondition}
         `, params);
         
+        // PostgreSQLのDECIMAL型を数値に変換
+        const monthlyStatsParsed = monthlyStats.map(item => ({
+            ...item,
+            income: parseFloat(item.income) || 0,
+            expense: parseFloat(item.expense) || 0
+        }));
+
+        const categoryStatsParsed = categoryStats.map(item => ({
+            ...item,
+            total: parseFloat(item.total) || 0
+        }));
+
+        const walletStatsParsed = walletStats.map(item => ({
+            ...item,
+            income: parseFloat(item.income) || 0,
+            expense: parseFloat(item.expense) || 0
+        }));
+
+        const totalIncome = parseFloat(totals.total_income) || 0;
+        const totalExpense = parseFloat(totals.total_expense) || 0;
+
         res.json({
-            monthlyStats,
-            categoryStats,
-            walletStats,
+            monthlyStats: monthlyStatsParsed,
+            categoryStats: categoryStatsParsed,
+            walletStats: walletStatsParsed,
             totals: {
-                income: totals.total_income || 0,
-                expense: totals.total_expense || 0,
-                net: (totals.total_income || 0) - (totals.total_expense || 0)
+                income: totalIncome,
+                expense: totalExpense,
+                net: totalIncome - totalExpense
             }
         });
         
