@@ -13,7 +13,7 @@
             <nav>
                 <button id="calendar-tab" class="nav-btn active">カレンダー</button>
                 <button id="input-tab" class="nav-btn">収支登録</button>
-                <button id="receipt-tab" class="nav-btn">レシート解析</button>
+                <button id="fuzzy-tab" class="nav-btn">あいまい登録</button>
                 <button id="summary-tab" class="nav-btn">予算確認</button>
                 <button id="balance-tab" class="nav-btn">残高管理</button>
                 <button id="budget-tab" class="nav-btn">予算設定</button>
@@ -181,42 +181,92 @@
             </div>
 
             <!-- レシート解析ビュー -->
-            <div id="receipt-view" class="view">
-                <div class="receipt-container">
-                    <h2>レシート解析</h2>
-                    <div class="upload-area" id="upload-area">
-                        <p>レシート画像をドロップするか、クリックして選択してください</p>
-                        <input type="file" id="receipt-file" accept="image/*" style="display:none;">
+            <!-- あいまい登録ビュー -->
+            <div id="fuzzy-view" class="view">
+                <div class="fuzzy-container">
+                    <h2>あいまい登録</h2>
+                    <p class="fuzzy-description">自然な文章で取引を登録できます。例: 「ファミマで昼ごはん買った、368円、楽天Payたけで払った」</p>
+
+                    <div class="form-group">
+                        <label for="fuzzy-input">取引内容を入力</label>
+                        <textarea id="fuzzy-input" rows="3" placeholder="例: セブンイレブンで朝ごはん買った、520円、現金たけ"></textarea>
                     </div>
-                    <div id="receipt-result" class="receipt-result hidden">
+
+                    <button id="parse-fuzzy" class="btn-primary">解析</button>
+
+                    <div id="fuzzy-result" class="fuzzy-result hidden">
                         <h3>解析結果</h3>
-                        <div id="receipt-data"></div>
-                        
-                        <!-- レシート項目詳細調整 -->
-                        <div id="receipt-items-section" class="receipt-items-section hidden">
-                            <h4>項目詳細調整</h4>
-                            <div id="receipt-items-list"></div>
-                            <div class="total-section">
-                                <strong>合計金額: <span id="receipt-total-amount">¥0</span></strong>
-                            </div>
+
+                        <div class="form-group">
+                            <label for="fuzzy-date">日付</label>
+                            <input type="date" id="fuzzy-date" required>
                         </div>
-                        
+
+                        <div class="form-group">
+                            <label for="fuzzy-type">種別 <span class="required">*</span></label>
+                            <select id="fuzzy-type" required>
+                                <option value="">選択してください</option>
+                                <option value="expense">支出</option>
+                                <option value="income">収入</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="fuzzy-amount">金額 <span class="required">*</span></label>
+                            <input type="number" id="fuzzy-amount" min="0" step="1" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="fuzzy-expense-category">出費カテゴリ <span class="required">*</span></label>
+                            <select id="fuzzy-expense-category" required>
+                                <option value="">選択してください</option>
+                            </select>
+                        </div>
+
                         <div class="form-group">
                             <label>支払い方法</label>
                             <div class="payment-method">
-                                <label><input type="radio" name="receipt-payment-method" value="wallet" checked> 財布</label>
-                                <label><input type="radio" name="receipt-payment-method" value="credit"> クレジットカード</label>
+                                <label><input type="radio" name="fuzzy-payment-method" value="wallet" checked> 財布</label>
+                                <label><input type="radio" name="fuzzy-payment-method" value="credit"> クレジットカード</label>
                             </div>
                         </div>
-                        <div class="form-group" id="receipt-wallet-group">
-                            <label for="receipt-wallet-category">財布カテゴリ</label>
-                            <select id="receipt-wallet-category"></select>
+
+                        <div class="form-group" id="fuzzy-wallet-group">
+                            <label for="fuzzy-wallet-category">財布カテゴリ <span class="required">*</span></label>
+                            <select id="fuzzy-wallet-category" required>
+                                <option value="">選択してください</option>
+                            </select>
                         </div>
-                        <div class="form-group hidden" id="receipt-credit-group">
-                            <label for="receipt-credit-category">クレジットカード</label>
-                            <select id="receipt-credit-category"></select>
+
+                        <div class="form-group hidden" id="fuzzy-credit-group">
+                            <label for="fuzzy-credit-category">クレジットカード <span class="required">*</span></label>
+                            <select id="fuzzy-credit-category">
+                                <option value="">選択してください</option>
+                            </select>
                         </div>
-                        <button id="register-receipt" class="btn-primary">登録</button>
+
+                        <div class="form-group">
+                            <label for="fuzzy-description">説明 <span class="required">*</span></label>
+                            <input type="text" id="fuzzy-description" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="fuzzy-payment-location">決済場所</label>
+                            <input type="text" id="fuzzy-payment-location" list="fuzzy-payment-locations">
+                            <datalist id="fuzzy-payment-locations"></datalist>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="fuzzy-memo">メモ</label>
+                            <textarea id="fuzzy-memo" rows="2"></textarea>
+                        </div>
+
+                        <div class="missing-info" id="fuzzy-missing-info" style="display:none;">
+                            <p class="error">⚠️ 以下の必須項目を入力してください:</p>
+                            <ul id="fuzzy-missing-list"></ul>
+                        </div>
+
+                        <button id="register-fuzzy" class="btn-primary">登録</button>
                     </div>
                 </div>
             </div>
@@ -394,5 +444,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="js/default-settings.js"></script>
     <script src="js/app.js"></script>
+    <script src="js/fuzzy-register.js"></script>
 </body>
 </html>

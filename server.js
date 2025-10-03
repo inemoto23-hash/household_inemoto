@@ -977,59 +977,69 @@ app.put('/api/wallets/:id/balance', async (req, res) => {
     }
 });
 
-// レシート解析API
-app.post('/api/analyze-receipt', upload.single('receipt'), async (req, res) => {
+// あいまい登録API
+app.post('/api/parse-fuzzy', async (req, res) => {
     try {
-        if (!req.file) {
-            return res.status(400).json({ error: 'ファイルがアップロードされていません' });
+        const { text } = req.body;
+
+        if (!text) {
+            return res.status(400).json({ error: 'テキストが入力されていません' });
         }
 
         const axios = require('axios');
-        const base64Image = req.file.buffer.toString('base64');
+
+        // カテゴリ情報を取得
+        const expenseCategories = await db.all('SELECT name FROM expense_categories ORDER BY name');
+        const walletCategories = await db.all('SELECT name FROM wallet_categories ORDER BY name');
+        const creditCategories = await db.all('SELECT name FROM credit_categories ORDER BY name');
+
+        const categoriesText = `
+出費カテゴリ: ${expenseCategories.map(c => c.name).join('、')}
+財布カテゴリ: ${walletCategories.map(c => c.name).join('、')}
+クレジットカード: ${creditCategories.map(c => c.name).join('、')}
+`;
 
         const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-            model: 'gpt-4o',
+            model: 'gpt-4o-mini',
             messages: [
                 {
-                    role: 'user',
-                    content: [
-                        {
-                            type: 'text',
-                            text: `このレシート画像を解析して、以下のJSON形式で正確に回答してください。
+                    role: 'system',
+                    content: `あなたは家計簿アプリのアシスタントです。ユーザーの自然言語入力から取引情報を抽出してJSON形式で返してください。
 
-【重要】店舗名は絶対に商品名に含めないでください。商品リスト部分のみから商品名を抽出してください。
+利用可能なカテゴリ:
+${categoriesText}
 
-解析例：
-- 店舗名「セブンイレブン」がレシートの上部にある場合、これを商品名に含めない
-- 商品リスト：「おにぎり 120円」「お茶 108円」の場合、商品名は「おにぎり」「お茶」のみ
+必須項目:
+- type: "expense"（支出）または"income"（収入）
+- amount: 金額（数値）
+- expense_category: 出費カテゴリ名（完全一致）
+- wallet_category または credit_category: 財布カテゴリ名またはクレジットカード名（完全一致）
+- description: 説明文
+
+任意項目:
+- payment_location: 決済場所・店舗名
+- memo: メモ
 
 JSON形式（説明文・マークダウン不要）:
 {
-  "total_amount": 合計金額の数値,
-  "items": [
-    {"name": "商品名のみ", "amount": 商品金額の数値}
-  ],
-  "store_name": "店舗名",
-  "date": "YYYY-MM-DD",
-  "suggested_category": "食費、生活費、養育費、ローン、小遣い、娯楽費、車維持費、医療費、公共料金、投資のいずれか"
-}
-
-注意：
-1. store_nameは上部の店舗名から取得
-2. itemsは商品リスト部分からのみ取得
-3. この2つを絶対に混同しない`
-                        },
-                        {
-                            type: 'image_url',
-                            image_url: {
-                                url: `data:image/jpeg;base64,${base64Image}`
-                            }
-                        }
-                    ]
+  "type": "expense" or "income",
+  "amount": 数値,
+  "expense_category": "カテゴリ名",
+  "wallet_category": "財布名" または null,
+  "credit_category": "クレジットカード名" または null,
+  "description": "説明文",
+  "payment_location": "店舗名" または null,
+  "memo": "メモ" または null,
+  "missing_fields": ["不足している必須項目のリスト"]
+}`
+                },
+                {
+                    role: 'user',
+                    content: text
                 }
             ],
-            max_tokens: 600,
-            temperature: 0.2
+            max_tokens: 500,
+            temperature: 0.3
         }, {
             headers: {
                 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -1039,55 +1049,46 @@ JSON形式（説明文・マークダウン不要）:
 
         let content = response.data.choices[0].message.content;
         console.log('OpenAI Response:', content);
-        
+
         // Markdownのコードブロック（```json```）を除去
         if (content.includes('```json')) {
             content = content.replace(/```json\s*/, '').replace(/```$/, '').trim();
         } else if (content.includes('```')) {
             content = content.replace(/```\s*/, '').replace(/```$/, '').trim();
         }
-        
-        try {
-            const analysis = JSON.parse(content);
-            
-            console.log('🤖 AI生データ:', {
-                store_name: analysis.store_name,
-                items_count: analysis.items?.length,
-                first_item: analysis.items?.[0]?.name,
-                all_items: analysis.items?.map(item => item.name)
-            });
-            
-            // 解析結果の検証と修正
-            const validatedAnalysis = validateAndFixReceiptAnalysis(analysis);
-            
-            console.log('✅ 修正後データ:', {
-                store_name: validatedAnalysis.store_name,
-                items_count: validatedAnalysis.items.length,
-                first_item: validatedAnalysis.items[0]?.name,
-                all_items: validatedAnalysis.items.map(item => item.name)
-            });
-            
-            res.json(validatedAnalysis);
-        } catch (parseError) {
-            console.error('JSON Parse Error:', parseError);
-            console.error('Content that failed to parse:', content);
-            res.status(500).json({ 
-                error: 'AIからの応答の解析に失敗しました',
-                rawContent: content
-            });
+
+        const parsed = JSON.parse(content);
+
+        // カテゴリIDを取得
+        if (parsed.expense_category) {
+            const category = await db.get('SELECT id FROM expense_categories WHERE name = ?', [parsed.expense_category]);
+            parsed.expense_category_id = category?.id || null;
         }
+
+        if (parsed.wallet_category) {
+            const wallet = await db.get('SELECT id FROM wallet_categories WHERE name = ?', [parsed.wallet_category]);
+            parsed.wallet_category_id = wallet?.id || null;
+        }
+
+        if (parsed.credit_category) {
+            const credit = await db.get('SELECT id FROM credit_categories WHERE name = ?', [parsed.credit_category]);
+            parsed.credit_category_id = credit?.id || null;
+        }
+
+        res.json(parsed);
+
     } catch (error) {
-        console.error('レシート解析エラー:', error);
+        console.error('あいまい登録解析エラー:', error);
         if (error.response) {
             console.error('OpenAI API Error:', error.response.status, error.response.data);
-            res.status(error.response.status).json({ 
+            res.status(error.response.status).json({
                 error: 'OpenAI APIエラー',
                 details: error.response.data
             });
         } else {
             console.error('Network Error:', error.message);
-            res.status(500).json({ 
-                error: 'レシートの解析に失敗しました',
+            res.status(500).json({
+                error: 'テキストの解析に失敗しました',
                 details: error.message
             });
         }
@@ -1213,123 +1214,6 @@ app.get('/api/wallet-transactions/:year/:month/:walletId', async (req, res) => {
     }
 });
 
-// レシート解析結果の検証と修正
-function validateAndFixReceiptAnalysis(analysis) {
-    try {
-        // デフォルト値の設定
-        const validated = {
-            total_amount: 0,
-            items: [],
-            store_name: analysis.store_name || '不明',
-            date: analysis.date || new Date().toISOString().split('T')[0],
-            suggested_category: analysis.suggested_category || '食費'
-        };
-        
-        // 商品リストの検証と修正
-        if (analysis.items && Array.isArray(analysis.items)) {
-            let filteredItems = analysis.items.filter(item => {
-                // 有効な商品のみ残す
-                return item && 
-                       typeof item.name === 'string' && 
-                       item.name.trim().length > 0 &&
-                       !isNaN(parseFloat(item.amount)) &&
-                       parseFloat(item.amount) > 0;
-            });
-            
-            // 店舗名が商品名に混入しているアイテムを除外
-            if (validated.store_name && validated.store_name !== '不明') {
-                const storeName = validated.store_name.trim();
-                
-                filteredItems = filteredItems.filter((item, index) => {
-                    const itemName = item.name.trim();
-                    
-                    // 店舗名パターンの検出
-                    const isStoreName = (
-                        itemName === storeName || 
-                        itemName.includes(storeName) || 
-                        storeName.includes(itemName) ||
-                        // 一般的な店舗名パターンもチェック
-                        /セブンイレブン|ファミマ|ローソン|スーパー|薬局|ドラッグ|コンビニ|店舗|マート|株式会社|有限会社/i.test(itemName) ||
-                        // 住所・電話番号パターン
-                        /\d{2,3}-\d{4}-\d{4}|\d{1,3}-\d{1,4}-\d{1,4}/.test(itemName) ||
-                        // 金額が異常に大きい（合計金額と近い）場合
-                        (item.amount && Math.abs(item.amount - (analysis.total_amount || 0)) < 10) ||
-                        // 非商品的なキーワード
-                        /領収書|レシート|ありがとうござい|またお越し|合計|小計|税込|税抜/i.test(itemName)
-                    );
-                    
-                    if (isStoreName) {
-                        console.log(`非商品アイテムを除外[${index}]: "${itemName}" (金額: ${item.amount})`);
-                        return false;
-                    }
-                    
-                    return true;
-                });
-            }
-            
-            validated.items = filteredItems.map(item => {
-                    let cleanName = item.name.trim();
-                    
-                    // 店舗名が商品名に混入している場合の除去
-                    const storeName = validated.store_name;
-                    if (storeName && storeName !== '不明') {
-                        // 店舗名を含む文字列を除去
-                        cleanName = cleanName.replace(new RegExp(storeName, 'gi'), '').trim();
-                    }
-                    
-                    // 一般的な店舗関連キーワードを除去
-                    const storeKeywords = [
-                        'セブンイレブン', 'ファミマ', 'ローソン', 'スーパー', '薬局',
-                        'ドラッグ', 'コンビニ', '店', 'ストア', 'マート', 'shop', 'store'
-                    ];
-                    
-                    storeKeywords.forEach(keyword => {
-                        cleanName = cleanName.replace(new RegExp(keyword, 'gi'), '').trim();
-                    });
-                    
-                    // その他のクリーニング
-                    cleanName = cleanName
-                        .replace(/^\d+\s*/, '') // 先頭の数字を除去
-                        .replace(/\s+¥.*$/, '') // 末尾の金額情報を除去
-                        .replace(/\s+\d+円.*$/, '') // 末尾の円表記を除去
-                        .replace(/^[^\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+/, '') // 先頭の特殊文字除去
-                        .trim();
-                    
-                    return {
-                        name: cleanName,
-                        amount: parseFloat(item.amount)
-                    };
-                })
-                .filter(item => item.name.length > 1 && 
-                                !(/^[0-9\s\-]+$/.test(item.name))); // 空や数字のみの商品名を除外
-        }
-        
-        // 合計金額の検証
-        const itemsTotal = validated.items.reduce((sum, item) => sum + item.amount, 0);
-        const originalTotal = parseFloat(analysis.total_amount) || 0;
-        
-        // 合計金額が商品合計と大きく異なる場合は商品合計を使用
-        if (Math.abs(originalTotal - itemsTotal) > itemsTotal * 0.1 && itemsTotal > 0) {
-            validated.total_amount = itemsTotal;
-            console.log(`合計金額を修正: ${originalTotal} → ${itemsTotal}`);
-        } else {
-            validated.total_amount = originalTotal;
-        }
-        
-        console.log('レシート解析結果検証完了:', {
-            original_total: originalTotal,
-            items_total: itemsTotal,
-            final_total: validated.total_amount,
-            items_count: validated.items.length
-        });
-        
-        return validated;
-        
-    } catch (error) {
-        console.error('レシート解析結果の検証エラー:', error);
-        return analysis; // エラー時は元のデータをそのまま返す
-    }
-}
 
 // 統計データAPI
 app.get('/api/stats/:year/:month?', async (req, res) => {

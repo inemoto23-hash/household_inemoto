@@ -1840,3 +1840,65 @@ main {
         max-height: 300px;
     }
 }
+/* あいまい登録 */
+.fuzzy-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.fuzzy-description {
+    background: #e3f2fd;
+    padding: 1rem;
+    border-radius: 5px;
+    margin-bottom: 1.5rem;
+    color: #1976d2;
+    font-size: 0.95rem;
+}
+
+.fuzzy-result {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: #f9f9f9;
+    border-radius: 8px;
+    border: 2px solid #e0e0e0;
+}
+
+.missing-info {
+    background: #fff3cd;
+    border: 2px solid #ffc107;
+    padding: 1rem;
+    border-radius: 5px;
+    margin: 1rem 0;
+}
+
+.missing-info .error {
+    color: #856404;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.missing-info ul {
+    margin-left: 1.5rem;
+    color: #856404;
+}
+
+.required {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+#fuzzy-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+    font-family: inherit;
+    resize: vertical;
+}
+
+#fuzzy-input:focus {
+    outline: none;
+    border-color: #2c3e50;
+}
