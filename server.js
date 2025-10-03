@@ -50,19 +50,59 @@ initializeDatabase();
 // データベース状態確認API
 app.get('/api/database/status', async (req, res) => {
     try {
+        const transactionCount = await db.get('SELECT COUNT(*) as count FROM transactions');
+        const categoryCount = await db.get('SELECT COUNT(*) as count FROM expense_categories');
+
         res.json({
             type: db.type || 'unknown',
             connected: !!db.client,
             environment: process.env.NODE_ENV || 'development',
             hasDatabaseUrl: !!process.env.DATABASE_URL,
+            transactionCount: transactionCount?.count || 0,
+            categoryCount: categoryCount?.count || 0,
             timestamp: new Date().toISOString()
         });
     } catch (error) {
         console.error('データベース状態確認エラー:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'データベース状態の確認に失敗しました',
             type: 'unknown',
             connected: false
+        });
+    }
+});
+
+// データベース初期化API（管理者用）
+app.post('/api/database/init', async (req, res) => {
+    try {
+        console.log('手動データベース初期化リクエスト受信');
+
+        // データが既に存在するかチェック
+        const dataCheck = await db.get('SELECT COUNT(*) as count FROM transactions');
+
+        if (dataCheck.count > 0) {
+            return res.status(400).json({
+                error: 'データベースには既にデータが存在します',
+                count: dataCheck.count,
+                message: '既存データを削除してから初期化する場合は、/api/database/reset を使用してください'
+            });
+        }
+
+        // シードデータを投入
+        await seedDatabase(db);
+
+        const newCount = await db.get('SELECT COUNT(*) as count FROM transactions');
+
+        res.json({
+            success: true,
+            message: 'データベースの初期化が完了しました',
+            transactionCount: newCount.count
+        });
+    } catch (error) {
+        console.error('データベース初期化エラー:', error);
+        res.status(500).json({
+            error: 'データベースの初期化に失敗しました',
+            details: error.message
         });
     }
 });
