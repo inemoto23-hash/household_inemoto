@@ -276,7 +276,7 @@ app.post('/api/expense-categories', async (req, res) => {
             return res.status(400).json({ error: 'カテゴリ名が必要です' });
         }
         
-        const result = await db.run('INSERT INTO expense_categories (name) VALUES (?)', [name]);
+        const result = await db.run(`INSERT INTO expense_categories (name) VALUES (${db.type === 'postgresql' ? '$1' : '?'})`, [name]);
         res.json({ id: result.lastID, name, message: '出費カテゴリを追加しました' });
     } catch (error) {
         if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
@@ -294,18 +294,18 @@ app.delete('/api/expense-categories/:id', async (req, res) => {
         const { id } = req.params;
         
         // そのカテゴリが使用されている取引がないかチェック
-        const usageCheck = await db.get('SELECT COUNT(*) as count FROM transactions WHERE expense_category_id = ?', [id]);
+        const usageCheck = await db.get(`SELECT COUNT(*) as count FROM transactions WHERE expense_category_id = ${db.type === 'postgresql' ? '$1' : '?'}`, [id]);
         if (usageCheck.count > 0) {
             return res.status(400).json({ error: 'このカテゴリは取引で使用されているため削除できません' });
         }
         
         // 予算設定もチェック
-        const budgetCheck = await db.get('SELECT COUNT(*) as count FROM monthly_budgets WHERE expense_category_id = ?', [id]);
+        const budgetCheck = await db.get(`SELECT COUNT(*) as count FROM monthly_budgets WHERE expense_category_id = ${db.type === 'postgresql' ? '$1' : '?'}`, [id]);
         if (budgetCheck.count > 0) {
             return res.status(400).json({ error: 'このカテゴリは予算設定で使用されているため削除できません' });
         }
         
-        const result = await db.run('DELETE FROM expense_categories WHERE id = ?', [id]);
+        const result = await db.run(`DELETE FROM expense_categories WHERE id = ${db.type === 'postgresql' ? '$1' : '?'}`, [id]);
         if (result.changes === 0) {
             return res.status(404).json({ error: 'カテゴリが見つかりません' });
         }
@@ -456,7 +456,7 @@ app.post('/api/transactions', async (req, res) => {
             }
 
             // 振替元の残高確認
-            const fromWallet = await db.get('SELECT balance FROM wallet_categories WHERE id = ?', [transfer_from_wallet_id]);
+            const fromWallet = await db.get(`SELECT balance FROM wallet_categories WHERE id = ${db.type === 'postgresql' ? '$1' : '?'}`, [transfer_from_wallet_id]);
             if (!fromWallet || fromWallet.balance < amount) {
                 return res.status(400).json({ error: '振替元の残高が不足しています' });
             }
@@ -464,6 +464,9 @@ app.post('/api/transactions', async (req, res) => {
             if (transfer_to_wallet_id === 'withdrawal') {
                 // 引落の場合：元財布から減額のみ
                 const outResult = await db.run(
+                    db.type === 'postgresql' ?
+                    `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
+                     VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7)` :
                     `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
                      VALUES (?, ?, 'expense', ?, ?, ?, ?, ?)`,
                     [date, amount, transfer_from_wallet_id, `引落: ${description || '引落処理'}`, memo, payment_location, notes]
@@ -471,7 +474,7 @@ app.post('/api/transactions', async (req, res) => {
 
                 // 元財布残高を減額
                 await db.run(
-                    'UPDATE wallet_categories SET balance = balance - ? WHERE id = ?',
+                    `UPDATE wallet_categories SET balance = balance - ${db.type === 'postgresql' ? '$1' : '?'} WHERE id = ${db.type === 'postgresql' ? '$2' : '?'}`,
                     [amount, transfer_from_wallet_id]
                 );
 
@@ -482,12 +485,18 @@ app.post('/api/transactions', async (req, res) => {
             } else {
                 // 通常の振替の場合：2つの取引記録を作成
                 const outResult = await db.run(
+                    db.type === 'postgresql' ?
+                    `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
+                     VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7)` :
                     `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
                      VALUES (?, ?, 'expense', ?, ?, ?, ?, ?)`,
                     [date, amount, transfer_from_wallet_id, `振替出金: ${description || '財布間振替'}`, memo, payment_location, notes]
                 );
-                
+
                 const inResult = await db.run(
+                    db.type === 'postgresql' ?
+                    `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
+                     VALUES ($1, $2, 'income', $3, $4, $5, $6, $7)` :
                     `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
                      VALUES (?, ?, 'income', ?, ?, ?, ?, ?)`,
                     [date, amount, transfer_to_wallet_id, `振替入金: ${description || '財布間振替'}`, memo, payment_location, notes]
@@ -495,12 +504,12 @@ app.post('/api/transactions', async (req, res) => {
 
                 // 財布残高を更新
                 await db.run(
-                    'UPDATE wallet_categories SET balance = balance - ? WHERE id = ?',
+                    `UPDATE wallet_categories SET balance = balance - ${db.type === 'postgresql' ? '$1' : '?'} WHERE id = ${db.type === 'postgresql' ? '$2' : '?'}`,
                     [amount, transfer_from_wallet_id]
                 );
-                
+
                 await db.run(
-                    'UPDATE wallet_categories SET balance = balance + ? WHERE id = ?',
+                    `UPDATE wallet_categories SET balance = balance + ${db.type === 'postgresql' ? '$1' : '?'} WHERE id = ${db.type === 'postgresql' ? '$2' : '?'}`,
                     [amount, transfer_to_wallet_id]
                 );
 
@@ -552,12 +561,18 @@ app.post('/api/transactions', async (req, res) => {
 
             // 予算振替の記録（収入・支出の取引として記録して実際の予算残高を移行）
             const budgetOutResult = await db.run(
+                db.type === 'postgresql' ?
+                `INSERT INTO transactions (date, amount, type, expense_category_id, description, memo, payment_location, notes)
+                 VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7)` :
                 `INSERT INTO transactions (date, amount, type, expense_category_id, description, memo, payment_location, notes)
                  VALUES (?, ?, 'expense', ?, ?, ?, ?, ?)`,
                 [date, amount, budget_from_category_id, `予算振替（減額）: ${description || '予算間振替'}`, memo, payment_location, notes]
             );
 
             const budgetInResult = await db.run(
+                db.type === 'postgresql' ?
+                `INSERT INTO transactions (date, amount, type, expense_category_id, description, memo, payment_location, notes)
+                 VALUES ($1, $2, 'income', $3, $4, $5, $6, $7)` :
                 `INSERT INTO transactions (date, amount, type, expense_category_id, description, memo, payment_location, notes)
                  VALUES (?, ?, 'income', ?, ?, ?, ?, ?)`,
                 [date, amount, budget_to_category_id, `予算振替（増額）: ${description || '予算間振替'}`, memo, payment_location, notes]
@@ -580,12 +595,18 @@ app.post('/api/transactions', async (req, res) => {
                 // クレジットから財布へのチャージ
                 // 2つの取引記録を作成（クレジット使用記録、財布への入金記録）
                 const chargeExpenseResult = await db.run(
+                    db.type === 'postgresql' ?
+                    `INSERT INTO transactions (date, amount, type, credit_category_id, description, memo, payment_location, notes)
+                     VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7)` :
                     `INSERT INTO transactions (date, amount, type, credit_category_id, description, memo, payment_location, notes)
                      VALUES (?, ?, 'expense', ?, ?, ?, ?, ?)`,
                     [date, amount, charge_from_credit_id, `チャージ: ${description || 'クレジットチャージ'}`, memo, payment_location, notes]
                 );
-                
+
                 const chargeIncomeResult = await db.run(
+                    db.type === 'postgresql' ?
+                    `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
+                     VALUES ($1, $2, 'income', $3, $4, $5, $6, $7)` :
                     `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
                      VALUES (?, ?, 'income', ?, ?, ?, ?, ?)`,
                     [date, amount, charge_to_wallet_id, `チャージ入金: ${description || 'クレジットチャージ'}`, memo, payment_location, notes]
@@ -593,7 +614,7 @@ app.post('/api/transactions', async (req, res) => {
 
                 // 財布残高を更新（入金）
                 await db.run(
-                    'UPDATE wallet_categories SET balance = balance + ? WHERE id = ?',
+                    `UPDATE wallet_categories SET balance = balance + ${db.type === 'postgresql' ? '$1' : '?'} WHERE id = ${db.type === 'postgresql' ? '$2' : '?'}`,
                     [amount, charge_to_wallet_id]
                 );
 
@@ -637,12 +658,18 @@ app.post('/api/transactions', async (req, res) => {
 
                 // 2つの取引記録を作成（チャージ元からの出金記録、チャージ先への入金記録）
                 const chargeOutResult = await db.run(
+                    db.type === 'postgresql' ?
+                    `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
+                     VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7)` :
                     `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
                      VALUES (?, ?, 'expense', ?, ?, ?, ?, ?)`,
                     [date, amount, charge_from_wallet_id, `チャージ: ${description || '財布チャージ'}`, memo, payment_location, notes]
                 );
-                
+
                 const chargeInResult = await db.run(
+                    db.type === 'postgresql' ?
+                    `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
+                     VALUES ($1, $2, 'income', $3, $4, $5, $6, $7)` :
                     `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
                      VALUES (?, ?, 'income', ?, ?, ?, ?, ?)`,
                     [date, amount, charge_to_wallet_id, `チャージ入金: ${description || '財布チャージ'}`, memo, payment_location, notes]
@@ -650,12 +677,12 @@ app.post('/api/transactions', async (req, res) => {
 
                 // 財布残高を更新
                 await db.run(
-                    'UPDATE wallet_categories SET balance = balance - ? WHERE id = ?',
+                    `UPDATE wallet_categories SET balance = balance - ${db.type === 'postgresql' ? '$1' : '?'} WHERE id = ${db.type === 'postgresql' ? '$2' : '?'}`,
                     [amount, charge_from_wallet_id]
                 );
-                
+
                 await db.run(
-                    'UPDATE wallet_categories SET balance = balance + ? WHERE id = ?',
+                    `UPDATE wallet_categories SET balance = balance + ${db.type === 'postgresql' ? '$1' : '?'} WHERE id = ${db.type === 'postgresql' ? '$2' : '?'}`,
                     [amount, charge_to_wallet_id]
                 );
 
@@ -670,6 +697,9 @@ app.post('/api/transactions', async (req, res) => {
         } else {
             // 通常の収入・支出処理
             const result = await db.run(
+                db.type === 'postgresql' ?
+                `INSERT INTO transactions (date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, payment_location, notes)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)` :
                 `INSERT INTO transactions (date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, payment_location, notes)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, payment_location, notes]
@@ -701,12 +731,12 @@ app.post('/api/transactions', async (req, res) => {
             // 財布残高を更新
             if (type === 'expense' && wallet_category_id) {
                 await db.run(
-                    'UPDATE wallet_categories SET balance = balance - ? WHERE id = ?',
+                    `UPDATE wallet_categories SET balance = balance - ${db.type === 'postgresql' ? '$1' : '?'} WHERE id = ${db.type === 'postgresql' ? '$2' : '?'}`,
                     [amount, wallet_category_id]
                 );
             } else if (type === 'income' && wallet_category_id) {
                 await db.run(
-                    'UPDATE wallet_categories SET balance = balance + ? WHERE id = ?',
+                    `UPDATE wallet_categories SET balance = balance + ${db.type === 'postgresql' ? '$1' : '?'} WHERE id = ${db.type === 'postgresql' ? '$2' : '?'}`,
                     [amount, wallet_category_id]
                 );
             }
@@ -763,7 +793,7 @@ app.put('/api/transactions/:id', async (req, res) => {
         const { date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, payment_location, notes, items } = req.body;
 
         // 既存の取引を取得
-        const existingTransaction = await db.get('SELECT * FROM transactions WHERE id = ?', [id]);
+        const existingTransaction = await db.get(`SELECT * FROM transactions WHERE id = ${db.type === 'postgresql' ? '$1' : '?'}`, [id]);
         if (!existingTransaction) {
             return res.status(404).json({ error: '取引が見つかりません' });
         }
@@ -771,12 +801,12 @@ app.put('/api/transactions/:id', async (req, res) => {
         // 既存の財布残高やクレジット使用額を元に戻す
         if (existingTransaction.type === 'expense' && existingTransaction.wallet_category_id) {
             await db.run(
-                'UPDATE wallet_categories SET balance = balance + ? WHERE id = ?',
+                `UPDATE wallet_categories SET balance = balance + ${db.type === 'postgresql' ? '$1' : '?'} WHERE id = ${db.type === 'postgresql' ? '$2' : '?'}`,
                 [existingTransaction.amount, existingTransaction.wallet_category_id]
             );
         } else if (existingTransaction.type === 'income' && existingTransaction.wallet_category_id) {
             await db.run(
-                'UPDATE wallet_categories SET balance = balance - ? WHERE id = ?',
+                `UPDATE wallet_categories SET balance = balance - ${db.type === 'postgresql' ? '$1' : '?'} WHERE id = ${db.type === 'postgresql' ? '$2' : '?'}`,
                 [existingTransaction.amount, existingTransaction.wallet_category_id]
             );
         }
@@ -811,9 +841,15 @@ app.put('/api/transactions/:id', async (req, res) => {
 
         // 取引を更新
         await db.run(
-            `UPDATE transactions 
-             SET date = ?, amount = ?, type = ?, expense_category_id = ?, 
-                 wallet_category_id = ?, credit_category_id = ?, description = ?, 
+            db.type === 'postgresql' ?
+            `UPDATE transactions
+             SET date = $1, amount = $2, type = $3, expense_category_id = $4,
+                 wallet_category_id = $5, credit_category_id = $6, description = $7,
+                 memo = $8, payment_location = $9, notes = $10, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $11` :
+            `UPDATE transactions
+             SET date = ?, amount = ?, type = ?, expense_category_id = ?,
+                 wallet_category_id = ?, credit_category_id = ?, description = ?,
                  memo = ?, payment_location = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
              WHERE id = ?`,
             [date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, payment_location, notes, id]
@@ -845,12 +881,12 @@ app.put('/api/transactions/:id', async (req, res) => {
         // 新しい財布残高を更新
         if (type === 'expense' && wallet_category_id) {
             await db.run(
-                'UPDATE wallet_categories SET balance = balance - ? WHERE id = ?',
+                `UPDATE wallet_categories SET balance = balance - ${db.type === 'postgresql' ? '$1' : '?'} WHERE id = ${db.type === 'postgresql' ? '$2' : '?'}`,
                 [amount, wallet_category_id]
             );
         } else if (type === 'income' && wallet_category_id) {
             await db.run(
-                'UPDATE wallet_categories SET balance = balance + ? WHERE id = ?',
+                `UPDATE wallet_categories SET balance = balance + ${db.type === 'postgresql' ? '$1' : '?'} WHERE id = ${db.type === 'postgresql' ? '$2' : '?'}`,
                 [amount, wallet_category_id]
             );
         }
@@ -897,7 +933,7 @@ app.delete('/api/transactions/:id', async (req, res) => {
         const { id } = req.params;
 
         // 削除する取引を取得
-        const transaction = await db.get('SELECT * FROM transactions WHERE id = ?', [id]);
+        const transaction = await db.get(`SELECT * FROM transactions WHERE id = ${db.type === 'postgresql' ? '$1' : '?'}`, [id]);
         if (!transaction) {
             return res.status(404).json({ error: '取引が見つかりません' });
         }
@@ -905,12 +941,12 @@ app.delete('/api/transactions/:id', async (req, res) => {
         // 財布残高を元に戻す
         if (transaction.type === 'expense' && transaction.wallet_category_id) {
             await db.run(
-                'UPDATE wallet_categories SET balance = balance + ? WHERE id = ?',
+                `UPDATE wallet_categories SET balance = balance + ${db.type === 'postgresql' ? '$1' : '?'} WHERE id = ${db.type === 'postgresql' ? '$2' : '?'}`,
                 [transaction.amount, transaction.wallet_category_id]
             );
         } else if (transaction.type === 'income' && transaction.wallet_category_id) {
             await db.run(
-                'UPDATE wallet_categories SET balance = balance - ? WHERE id = ?',
+                `UPDATE wallet_categories SET balance = balance - ${db.type === 'postgresql' ? '$1' : '?'} WHERE id = ${db.type === 'postgresql' ? '$2' : '?'}`,
                 [transaction.amount, transaction.wallet_category_id]
             );
         }
@@ -985,7 +1021,7 @@ app.get('/api/budgets/:year/:month', async (req, res) => {
             `SELECT mb.*, ec.name as category_name
              FROM monthly_budgets mb
              JOIN expense_categories ec ON mb.expense_category_id = ec.id
-             WHERE mb.year = ? AND mb.month = ?`,
+             WHERE mb.year = ${db.type === 'postgresql' ? '$1' : '?'} AND mb.month = ${db.type === 'postgresql' ? '$2' : '?'}`,
             [year, month]
         );
         res.json(budgets);
@@ -1024,13 +1060,16 @@ app.post('/api/budget-adjustments', async (req, res) => {
         const adjustmentDate = `${year}-${month.toString().padStart(2, '0')}-01`;
         
         const result = await db.run(
+            db.type === 'postgresql' ?
+            `INSERT INTO transactions (date, amount, type, expense_category_id, description, memo, payment_location, notes)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)` :
             `INSERT INTO transactions (date, amount, type, expense_category_id, description, memo, payment_location, notes)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-                adjustmentDate, 
-                amount, 
-                transactionType, 
-                category_id, 
+                adjustmentDate,
+                amount,
+                transactionType,
+                category_id,
                 description || '予算残高調整',
                 'システムによる予算残高調整',
                 '予算調整',
@@ -1055,7 +1094,7 @@ app.put('/api/wallets/:id/balance', async (req, res) => {
     try {
         const { id } = req.params;
         const { balance } = req.body;
-        await db.run('UPDATE wallet_categories SET balance = ? WHERE id = ?', [balance, id]);
+        await db.run(`UPDATE wallet_categories SET balance = ${db.type === 'postgresql' ? '$1' : '?'} WHERE id = ${db.type === 'postgresql' ? '$2' : '?'}`, [balance, id]);
         res.json({ message: '残高を更新しました' });
     } catch (error) {
         res.status(500).json({ error: '残高の更新に失敗しました' });
@@ -1160,17 +1199,17 @@ JSON形式（説明文・マークダウン不要）:
 
         // カテゴリIDを取得
         if (parsed.expense_category) {
-            const category = await db.get('SELECT id FROM expense_categories WHERE name = ?', [parsed.expense_category]);
+            const category = await db.get(`SELECT id FROM expense_categories WHERE name = ${db.type === 'postgresql' ? '$1' : '?'}`, [parsed.expense_category]);
             parsed.expense_category_id = category?.id || null;
         }
 
         if (parsed.wallet_category) {
-            const wallet = await db.get('SELECT id FROM wallet_categories WHERE name = ?', [parsed.wallet_category]);
+            const wallet = await db.get(`SELECT id FROM wallet_categories WHERE name = ${db.type === 'postgresql' ? '$1' : '?'}`, [parsed.wallet_category]);
             parsed.wallet_category_id = wallet?.id || null;
         }
 
         if (parsed.credit_category) {
-            const credit = await db.get('SELECT id FROM credit_categories WHERE name = ?', [parsed.credit_category]);
+            const credit = await db.get(`SELECT id FROM credit_categories WHERE name = ${db.type === 'postgresql' ? '$1' : '?'}`, [parsed.credit_category]);
             parsed.credit_category_id = credit?.id || null;
         }
 
@@ -1322,11 +1361,11 @@ app.get('/api/stats/:year/:month?', async (req, res) => {
         console.log(`統計データ取得: year=${year}, month=${month}`);
         
         // 期間条件を構築
-        let dateCondition = `${getYearFormat('t.date')} = ?`;
+        let dateCondition = `${getYearFormat('t.date')} = ${db.type === 'postgresql' ? '$1' : '?'}`;
         let params = [year];
 
         if (month) {
-            dateCondition += ` AND ${getMonthFormat('t.date')} = ?`;
+            dateCondition += ` AND ${getMonthFormat('t.date')} = ${db.type === 'postgresql' ? '$2' : '?'}`;
             params.push(month.padStart(2, '0'));
         }
         
