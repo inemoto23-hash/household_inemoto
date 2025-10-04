@@ -1157,26 +1157,34 @@ app.post('/api/parse-fuzzy', async (req, res) => {
 利用可能なカテゴリ:
 ${categoriesText}
 
-取引タイプ判定ルール（必ず以下の4つから選択）:
+取引タイプ判定ルール（優先順位順に判定）:
 1. "チャージ"という文言がある場合 → type: "charge"
+   例: "楽天Payに10000円チャージ" → charge
 2. "振替"という文言がある場合 → type: "transfer"
-3. "収入"や"給料"や"入金"などの文言がある場合 → type: "income"
+   例: "楽天銀行から三井住友銀行に5000円振替" → transfer
+3. "収入"や"給料"や"入金"や"ボーナス"などの文言がある場合 → type: "income"
+   例: "給料50万円が楽天銀行に入金された" → income
 4. それ以外の購入・支払い → type: "expense"
+   例: "ファミマで昼ごはん買った、368円" → expense
 
 重要: typeは必ず "expense", "income", "transfer", "charge" のいずれか1つを選択してください。
+上記のキーワードがある場合は、必ず対応するtypeを設定してください。
 
 必須項目（取引タイプにより異なる）:
 【支出 (expense)】
 - amount, expense_category, (wallet_category OR credit_category), description
 
 【収入 (income)】
-- amount, expense_category, wallet_category, description
+- amount, wallet_category, description
+- expense_categoryは不要（nullに設定）
 
 【振替 (transfer)】
 - amount, transfer_from_wallet, transfer_to_wallet, description
+- expense_category, wallet_category, credit_categoryは不要（nullに設定）
 
 【チャージ (charge)】
 - amount, charge_to_wallet, charge_from_credit（"楽天カード"を自動設定）, description
+- expense_category, wallet_category, credit_categoryは不要（nullに設定）
 
 任意項目:
 - date: 日付（YYYY-MM-DD形式。「昨日」「一昨日」「10月3日」などの表現があれば日付に変換。なければnull）
