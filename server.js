@@ -328,13 +328,13 @@ app.get('/api/transactions/:id', async (req, res) => {
         const { id } = req.params;
         console.log(`個別取引取得: ID=${id}`);
         const transaction = await db.get(
-            `SELECT t.*, ec.name as expense_category_name, 
+            `SELECT t.*, ec.name as expense_category_name,
                    wc.name as wallet_category_name, cc.name as credit_category_name
              FROM transactions t
              LEFT JOIN expense_categories ec ON t.expense_category_id = ec.id
              LEFT JOIN wallet_categories wc ON t.wallet_category_id = wc.id
              LEFT JOIN credit_categories cc ON t.credit_category_id = cc.id
-             WHERE t.id = ?`,
+             WHERE t.id = ${db.type === 'postgresql' ? '$1' : '?'}`,
             [id]
         );
 
@@ -358,7 +358,7 @@ app.get('/api/transactions/:id', async (req, res) => {
                     `SELECT ti.*, ec.name as expense_category_name
                      FROM transaction_items ti
                      LEFT JOIN expense_categories ec ON ti.expense_category_id = ec.id
-                     WHERE ti.transaction_id = ?`,
+                     WHERE ti.transaction_id = ${db.type === 'postgresql' ? '$1' : '?'}`,
                     [id]
                 );
                 // itemsのamountも数値に変換
@@ -428,7 +428,7 @@ app.get('/api/transactions', async (req, res) => {
                         `SELECT ti.*, ec.name as expense_category_name
                          FROM transaction_items ti
                          LEFT JOIN expense_categories ec ON ti.expense_category_id = ec.id
-                         WHERE ti.transaction_id = ?`,
+                         WHERE ti.transaction_id = ${db.type === 'postgresql' ? '$1' : '?'}`,
                         [transaction.id]
                     );
                     // itemsのamountも数値に変換
@@ -857,7 +857,7 @@ app.put('/api/transactions/:id', async (req, res) => {
                 tableExists = await db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='transaction_items'");
             }
             if (tableExists) {
-                await db.run('DELETE FROM transaction_items WHERE transaction_id = ?', [id]);
+                await db.run(`DELETE FROM transaction_items WHERE transaction_id = ${db.type === 'postgresql' ? '$1' : '?'}`, [id]);
             }
         } catch (itemError) {
             console.warn('既存商品詳細削除エラー:', itemError);
@@ -993,14 +993,14 @@ app.delete('/api/transactions/:id', async (req, res) => {
         try {
             const tableExists = await db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='transaction_items'");
             if (tableExists) {
-                await db.run('DELETE FROM transaction_items WHERE transaction_id = ?', [id]);
+                await db.run(`DELETE FROM transaction_items WHERE transaction_id = ${db.type === 'postgresql' ? '$1' : '?'}`, [id]);
             }
         } catch (itemError) {
             console.warn('商品詳細削除エラー:', itemError);
         }
 
         // 取引を削除
-        await db.run('DELETE FROM transactions WHERE id = ?', [id]);
+        await db.run(`DELETE FROM transactions WHERE id = ${db.type === 'postgresql' ? '$1' : '?'}`, [id]);
 
         res.json({ message: '取引を削除しました' });
     } catch (error) {
@@ -1367,8 +1367,15 @@ app.get('/api/category-transactions/:year/:month/:categoryId/:categoryType', asy
         }
         
         const transactions = await db.all(query, params);
-        res.json(transactions);
-        
+
+        // PostgreSQLのDECIMAL型を数値に変換
+        const transactionsParsed = transactions.map(t => ({
+            ...t,
+            amount: parseFloat(t.amount) || 0
+        }));
+
+        res.json(transactionsParsed);
+
     } catch (error) {
         console.error('カテゴリ別取引取得エラー:', error);
         res.status(500).json({ error: 'カテゴリ別取引の取得に失敗しました' });
@@ -1392,8 +1399,14 @@ app.get('/api/wallet-transactions/:year/:month/:walletId', async (req, res) => {
                 AND ${getYearMonthFormat('t.date')} = ${db.type === 'postgresql' ? '$2' : '?'}
             ORDER BY t.date DESC, t.created_at DESC
         `, [walletId, yearMonth]);
-        
-        res.json(transactions);
+
+        // PostgreSQLのDECIMAL型を数値に変換
+        const transactionsParsed = transactions.map(t => ({
+            ...t,
+            amount: parseFloat(t.amount) || 0
+        }));
+
+        res.json(transactionsParsed);
         
     } catch (error) {
         console.error('財布別取引取得エラー:', error);
