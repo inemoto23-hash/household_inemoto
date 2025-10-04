@@ -3,6 +3,7 @@
 let fuzzyExpenseCategories = [];
 let fuzzyWalletCategories = [];
 let fuzzyCreditCategories = [];
+let recognition = null; // 音声認識オブジェクト
 
 // あいまい登録タブ初期化
 function initFuzzyRegister() {
@@ -34,6 +35,12 @@ function initFuzzyRegister() {
         parseFuzzyBtn.addEventListener('click', parseFuzzyInput);
     }
 
+    // 音声入力ボタン
+    const voiceInputBtn = document.getElementById('voice-input-btn');
+    if (voiceInputBtn) {
+        voiceInputBtn.addEventListener('click', startVoiceInput);
+    }
+
     // 登録ボタン
     if (registerFuzzyBtn) {
         registerFuzzyBtn.addEventListener('click', registerFuzzyTransaction);
@@ -47,6 +54,9 @@ function initFuzzyRegister() {
             document.getElementById('fuzzy-credit-group').classList.toggle('hidden', isWallet);
         });
     });
+
+    // 音声認識の初期化
+    initVoiceRecognition();
 }
 
 // カテゴリを読み込み
@@ -144,6 +154,9 @@ async function parseFuzzyInput() {
 
         // 入力タブに切り替え
         showView('input');
+
+        // 入力テキストをクリア
+        fuzzyInput.value = '';
 
     } catch (error) {
         console.error('解析エラー:', error);
@@ -402,6 +415,75 @@ function checkMissingFields(result) {
     } else {
         missingInfo.style.display = 'none';
     }
+}
+
+// 音声認識の初期化
+function initVoiceRecognition() {
+    // Web Speech APIのサポート確認
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+        console.warn('このブラウザは音声認識に対応していません');
+        const voiceBtn = document.getElementById('voice-input-btn');
+        if (voiceBtn) {
+            voiceBtn.style.display = 'none';
+        }
+        return;
+    }
+
+    recognition = new SpeechRecognition();
+    recognition.lang = 'ja-JP';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onresult = async (event) => {
+        const transcript = event.results[0][0].transcript;
+        console.log('音声認識結果:', transcript);
+
+        // テキストエリアに入力
+        const fuzzyInput = document.getElementById('fuzzy-input');
+        fuzzyInput.value = transcript;
+
+        // 自動で解析を実行
+        await parseFuzzyInput();
+    };
+
+    recognition.onerror = (event) => {
+        console.error('音声認識エラー:', event.error);
+        const voiceBtn = document.getElementById('voice-input-btn');
+        voiceBtn.classList.remove('listening');
+        voiceBtn.textContent = '🎤 音声入力';
+        alert('音声認識エラー: ' + event.error);
+    };
+
+    recognition.onend = () => {
+        const voiceBtn = document.getElementById('voice-input-btn');
+        voiceBtn.classList.remove('listening');
+        voiceBtn.textContent = '🎤 音声入力';
+    };
+}
+
+// 音声入力開始
+function startVoiceInput() {
+    if (!recognition) {
+        alert('このブラウザは音声認識に対応していません');
+        return;
+    }
+
+    const voiceBtn = document.getElementById('voice-input-btn');
+
+    // 既に録音中の場合は停止
+    if (voiceBtn.classList.contains('listening')) {
+        recognition.stop();
+        voiceBtn.classList.remove('listening');
+        voiceBtn.textContent = '🎤 音声入力';
+        return;
+    }
+
+    // 録音開始
+    voiceBtn.classList.add('listening');
+    voiceBtn.textContent = '🛑 停止';
+    recognition.start();
 }
 
 // あいまい登録を実行
