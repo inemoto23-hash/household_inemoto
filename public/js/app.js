@@ -236,7 +236,7 @@ async function populateSelects(targetYear = null, targetMonth = null) {
     }
     
     // 出費カテゴリ（予算残高付き）- 保存された順序を適用
-    const sortedExpenseCategories = loadItemOrder('#expense-category', expenseCategories, 'category.name');
+    const sortedExpenseCategories = expenseCategories;
     sortedExpenseCategories.forEach(category => {
         const budget = budgetData[category.name];
         const remaining = budget ? budget.remaining : 0;
@@ -260,7 +260,7 @@ async function populateSelects(targetYear = null, targetMonth = null) {
     });
     
     // 財布カテゴリ（残高管理と同じ並び順）
-    const sortedWalletCategories = loadItemOrder('#wallet-list', walletCategories, 'wallet.id');
+    const sortedWalletCategories = walletCategories;
     [walletSelect, transferFromSelect, chargeToWalletSelect].forEach(select => {
         if (select) {
             sortedWalletCategories.forEach(wallet => {
@@ -1162,8 +1162,8 @@ async function loadBudget() {
         let totalBudget = 0;
         
         // 保存された順序で並び替え
-        const sortedCategories = loadItemOrder('#budget-list', expenseCategories, 'category.name');
-        
+        const sortedCategories = expenseCategories;
+
         sortedCategories.forEach((category, index) => {
             const budget = budgets.find(b => b.expense_category_id === category.id);
             const budgetAmount = budget ? budget.budget_amount : 0;
@@ -1305,8 +1305,8 @@ async function loadSummary() {
         expenseSummaryList.innerHTML = '';
         
         // 保存された順序で並び替え
-        const sortedExpenseItems = loadItemOrder('#expense-summary-list', summary.expenseSummary, 'category.name');
-        
+        const sortedExpenseItems = summary.expenseSummary;
+
         sortedExpenseItems.forEach((item, index) => {
             const summaryItem = document.createElement('div');
             summaryItem.className = 'summary-item';
@@ -1381,8 +1381,8 @@ async function loadSummary() {
         document.getElementById('credit-total').textContent = `¥${totalCreditUsage.toLocaleString()}`;
         
         // 保存された順序で並び替え
-        const sortedCreditItems = loadItemOrder('#credit-summary-list', summary.creditSummary, 'category.name');
-        
+        const sortedCreditItems = summary.creditSummary;
+
         sortedCreditItems.forEach((item, index) => {
             const summaryItem = document.createElement('div');
             summaryItem.className = 'summary-item';
@@ -1435,8 +1435,8 @@ async function loadWalletBalances() {
         document.getElementById('wallet-total').textContent = `¥${totalBalance.toLocaleString()}`;
         
         // 保存された順序で並び替え
-        const sortedWallets = loadItemOrder('#wallet-list', wallets, 'wallet.id');
-        
+        const sortedWallets = wallets;
+
         sortedWallets.forEach((wallet, index) => {
             const walletItem = document.createElement('div');
             walletItem.className = 'wallet-item';
@@ -1570,63 +1570,6 @@ async function saveItemOrder(container) {
             console.error('並び順保存エラー:', error);
         }
     }
-}
-
-function loadItemOrder(containerSelector, items, keyProperty) {
-    const storageKey = getStorageKeyForContainer(containerSelector);
-    const savedOrder = localStorage.getItem(storageKey);
-    
-    if (!savedOrder) {
-        return items;
-    }
-    
-    try {
-        const order = JSON.parse(savedOrder);
-        const sortedItems = [];
-        
-        // 保存された順序に従って並び替え
-        order.forEach(key => {
-            const item = items.find(item => getItemKey(item, keyProperty) === key);
-            if (item) {
-                sortedItems.push(item);
-            }
-        });
-        
-        // 新しく追加された項目があれば最後に追加
-        items.forEach(item => {
-            if (!sortedItems.includes(item)) {
-                sortedItems.push(item);
-            }
-        });
-        
-        return sortedItems;
-    } catch (error) {
-        console.error('順序の読み込みに失敗:', error);
-        return items;
-    }
-}
-
-function getStorageKeyForContainer(containerSelector) {
-    const keyMap = {
-        '#wallet-list': 'walletOrder',
-        '#budget-list': 'expenseCategoryOrder',
-        '#expense-summary-list': 'expenseCategoryOrder',
-        '#expense-category': 'expenseCategoryOrder',
-        '#credit-summary-list': 'creditSummaryOrder'
-    };
-    return keyMap[containerSelector] || null;
-}
-
-function getItemKey(item, keyProperty) {
-    if (keyProperty === 'wallet.id') return String(item.id);
-    if (keyProperty === 'category.id') return item.id;
-    if (keyProperty === 'category.name') {
-        // 予算確認ページの場合
-        if (item.category) return item.category;
-        // 予算設定ページの場合
-        if (item.name) return item.name;
-    }
-    return null;
 }
 
 // 商品行追加
