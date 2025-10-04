@@ -226,16 +226,18 @@ function populateMainForm(result) {
             if (result.wallet_category_id) {
                 document.querySelector('input[name="payment-method"][value="wallet"]').checked = true;
                 togglePaymentMethod();
+                // 収支登録の財布セレクトはIDのみ（wallet_X形式ではない）
                 document.getElementById('wallet-category').value = result.wallet_category_id;
                 console.log('財布を設定:', result.wallet_category_id);
             } else if (result.credit_category_id) {
                 document.querySelector('input[name="payment-method"][value="credit"]').checked = true;
                 togglePaymentMethod();
+                // 収支登録のクレジットセレクトはIDのみ（credit_X形式ではない）
                 document.getElementById('credit-category').value = result.credit_category_id;
                 console.log('クレジットカードを設定:', result.credit_category_id);
             }
         } else if (result.type === 'transfer') {
-            // 振替
+            // 振替（IDのみの形式）
             if (result.transfer_from_wallet_id) {
                 document.getElementById('transfer-from-wallet').value = result.transfer_from_wallet_id;
                 console.log('振替元を設定:', result.transfer_from_wallet_id);
@@ -254,8 +256,10 @@ function populateMainForm(result) {
             // チャージ先
             const chargeToSelect = document.getElementById('charge-to-wallet');
             if (result.charge_to_wallet_id) {
-                chargeToSelect.value = result.charge_to_wallet_id;
-                console.log('✅ チャージ先を設定:', result.charge_to_wallet_id);
+                // IDをwallet_X形式に変換
+                const walletValue = `wallet_${result.charge_to_wallet_id}`;
+                chargeToSelect.value = walletValue;
+                console.log('✅ チャージ先を設定:', result.charge_to_wallet_id, '→', walletValue);
             } else {
                 console.log('⚠️ charge_to_wallet_idが存在しません');
             }
@@ -276,9 +280,11 @@ function populateMainForm(result) {
                 console.log('==================');
 
                 if (result.charge_from_credit_id) {
-                    console.log(`設定しようとしているID: ${result.charge_from_credit_id} (type: ${typeof result.charge_from_credit_id})`);
-                    chargeFromSelect.value = String(result.charge_from_credit_id);
-                    console.log('✅ チャージ元を設定（API）:', result.charge_from_credit_id);
+                    // IDをcredit_X形式に変換
+                    const creditValue = `credit_${result.charge_from_credit_id}`;
+                    console.log(`設定しようとしているID: ${result.charge_from_credit_id} → ${creditValue}`);
+                    chargeFromSelect.value = creditValue;
+                    console.log('✅ チャージ元を設定（API）:', creditValue);
                     console.log('設定直後の値:', chargeFromSelect.value);
 
                     // 値が設定されているか確認
