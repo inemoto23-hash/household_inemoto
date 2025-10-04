@@ -156,7 +156,7 @@ async function parseFuzzyInput() {
         showView('input');
 
         // 入力テキストをクリア
-        fuzzyInput.value = '';
+        document.getElementById('fuzzy-input').value = '';
 
     } catch (error) {
         console.error('解析エラー:', error);
