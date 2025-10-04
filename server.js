@@ -729,28 +729,8 @@ app.post('/api/transactions', async (req, res) => {
                 [date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, payment_location, notes]
             );
 
-            // 商品詳細がある場合は保存
-            if (items && items.length > 0) {
-                for (const item of items) {
-                    await db.run(
-                        `INSERT INTO transaction_items (transaction_id, item_name, amount, expense_category_id)
-                         VALUES (?, ?, ?, ?)`,
-                        [result.lastID, item.name, item.amount, item.expense_category_id || expense_category_id]
-                    );
-                }
-            }
-
-            // 決済場所をマスタに追加/更新（使用回数カウント）
-            if (payment_location) {
-                await db.run(
-                    `INSERT INTO payment_locations (name, usage_count) 
-                     VALUES (?, 1) 
-                     ON CONFLICT(name) DO UPDATE SET 
-                         usage_count = usage_count + 1, 
-                         updated_at = CURRENT_TIMESTAMP`,
-                    [payment_location]
-                );
-            }
+            // 商品詳細と決済場所マスタの機能は削除されました
+            // transaction_itemsテーブルとpayment_locationsテーブルは存在しません
 
             // 財布残高を更新
             if (type === 'expense' && wallet_category_id) {
@@ -879,28 +859,8 @@ app.put('/api/transactions/:id', async (req, res) => {
             [date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, payment_location, notes, id]
         );
 
-        // 新しい商品詳細を追加
-        if (items && items.length > 0) {
-            for (const item of items) {
-                await db.run(
-                    `INSERT INTO transaction_items (transaction_id, item_name, amount, expense_category_id)
-                     VALUES (?, ?, ?, ?)`,
-                    [id, item.name, item.amount, item.expense_category_id || expense_category_id]
-                );
-            }
-        }
-
-        // 決済場所をマスタに追加/更新
-        if (payment_location) {
-            await db.run(
-                `INSERT INTO payment_locations (name, usage_count) 
-                 VALUES (?, 1) 
-                 ON CONFLICT(name) DO UPDATE SET 
-                     usage_count = usage_count + 1, 
-                     updated_at = CURRENT_TIMESTAMP`,
-                [payment_location]
-            );
-        }
+        // 商品詳細と決済場所マスタの機能は削除されました
+        // transaction_itemsテーブルとpayment_locationsテーブルは存在しません
 
         // 新しい財布残高を更新
         if (type === 'expense' && wallet_category_id) {
