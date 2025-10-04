@@ -1525,38 +1525,51 @@ function handleDrop(e) {
 }
 
 // 順序管理関数群
-function saveItemOrder(container) {
+async function saveItemOrder(container) {
     const containerId = container.id;
     const items = Array.from(container.children);
-    let order = [];
-    
+    let type = null;
+    let orderItems = [];
+
     // コンテナごとに異なる識別子を取得
     if (containerId === 'wallet-list') {
-        order = items.map(item => {
-            return item.dataset.walletId || null;
-        }).filter(id => id !== null);
-        localStorage.setItem('walletOrder', JSON.stringify(order));
-    } else if (containerId === 'budget-list') {
-        order = items.map(item => {
-            const label = item.querySelector('label');
-            return label ? label.textContent : null;
-        }).filter(name => name !== null);
-        localStorage.setItem('expenseCategoryOrder', JSON.stringify(order));
-    } else if (containerId === 'expense-summary-list') {
-        order = items.map(item => {
-            const categoryDiv = item.querySelector('.category');
-            return categoryDiv ? categoryDiv.textContent : null;
-        }).filter(name => name !== null);
-        localStorage.setItem('expenseCategoryOrder', JSON.stringify(order));
+        type = 'wallet';
+        orderItems = items.map((item, index) => ({
+            id: parseInt(item.dataset.walletId),
+            order_index: index
+        })).filter(item => item.id);
+    } else if (containerId === 'budget-list' || containerId === 'expense-summary-list') {
+        type = 'expense';
+        orderItems = items.map((item, index) => {
+            const categoryId = item.dataset.categoryId || item.querySelector('[data-category-id]')?.dataset.categoryId;
+            return {
+                id: parseInt(categoryId),
+                order_index: index
+            };
+        }).filter(item => item.id);
     } else if (containerId === 'credit-summary-list') {
-        order = items.map(item => {
-            const categoryDiv = item.querySelector('.category');
-            return categoryDiv ? categoryDiv.textContent : null;
-        }).filter(name => name !== null);
-        localStorage.setItem('creditSummaryOrder', JSON.stringify(order));
+        type = 'credit';
+        orderItems = items.map((item, index) => {
+            const creditId = item.dataset.creditId || item.querySelector('[data-credit-id]')?.dataset.creditId;
+            return {
+                id: parseInt(creditId),
+                order_index: index
+            };
+        }).filter(item => item.id);
     }
-    
-    console.log(`順序を保存しました (${containerId}):`, order);
+
+    if (type && orderItems.length > 0) {
+        try {
+            await fetch('/api/update-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type, items: orderItems })
+            });
+            console.log(`順序をDBに保存しました (${containerId}):`, orderItems);
+        } catch (error) {
+            console.error('並び順保存エラー:', error);
+        }
+    }
 }
 
 function loadItemOrder(containerSelector, items, keyProperty) {

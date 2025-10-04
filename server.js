@@ -243,7 +243,7 @@ const upload = multer({
 // カテゴリ取得API
 app.get('/api/expense-categories', async (req, res) => {
     try {
-        const categories = await db.all('SELECT * FROM expense_categories ORDER BY name');
+        const categories = await db.all('SELECT * FROM expense_categories ORDER BY order_index, name');
         res.json(categories);
     } catch (error) {
         res.status(500).json({ error: 'カテゴリの取得に失敗しました' });
@@ -252,7 +252,7 @@ app.get('/api/expense-categories', async (req, res) => {
 
 app.get('/api/wallet-categories', async (req, res) => {
     try {
-        const wallets = await db.all('SELECT * FROM wallet_categories ORDER BY name');
+        const wallets = await db.all('SELECT * FROM wallet_categories ORDER BY order_index, name');
         // PostgreSQLのDECIMAL型は文字列として返されるため数値に変換
         const walletsWithBalance = wallets.map(wallet => ({
             ...wallet,
@@ -266,7 +266,7 @@ app.get('/api/wallet-categories', async (req, res) => {
 
 app.get('/api/credit-categories', async (req, res) => {
     try {
-        const credits = await db.all(`SELECT * FROM credit_categories ORDER BY CASE WHEN name = '楽天カード' THEN 0 ELSE 1 END, name`);
+        const credits = await db.all('SELECT * FROM credit_categories ORDER BY order_index, name');
         res.json(credits);
     } catch (error) {
         res.status(500).json({ error: 'クレジットカードカテゴリの取得に失敗しました' });
@@ -1620,6 +1620,45 @@ app.get('/test', (req, res) => {
         clientIP: clientIP,
         userAgent: req.headers['user-agent']
     });
+});
+
+// 並び順更新API
+app.post('/api/update-order', async (req, res) => {
+    try {
+        const { type, items } = req.body;
+
+        if (!type || !items || !Array.isArray(items)) {
+            return res.status(400).json({ error: '無効なリクエストです' });
+        }
+
+        let tableName;
+        switch (type) {
+            case 'expense':
+                tableName = 'expense_categories';
+                break;
+            case 'wallet':
+                tableName = 'wallet_categories';
+                break;
+            case 'credit':
+                tableName = 'credit_categories';
+                break;
+            default:
+                return res.status(400).json({ error: '無効なタイプです' });
+        }
+
+        // 各アイテムのorder_indexを更新
+        for (const item of items) {
+            await db.run(
+                `UPDATE ${tableName} SET order_index = ${db.type === 'postgresql' ? '$1' : '?'} WHERE id = ${db.type === 'postgresql' ? '$2' : '?'}`,
+                [item.order_index, item.id]
+            );
+        }
+
+        res.json({ message: '並び順を更新しました' });
+    } catch (error) {
+        console.error('並び順更新エラー:', error);
+        res.status(500).json({ error: '並び順の更新に失敗しました' });
+    }
 });
 
 // サーバー起動

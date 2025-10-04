@@ -58,19 +58,22 @@ class Database {
             `CREATE TABLE IF NOT EXISTS expense_categories (
                 id ${idType},
                 name TEXT NOT NULL UNIQUE,
+                order_index INTEGER DEFAULT 0,
                 created_at ${timestampType}
             )`,
-            
+
             `CREATE TABLE IF NOT EXISTS wallet_categories (
                 id ${idType},
                 name TEXT NOT NULL UNIQUE,
                 balance DECIMAL(10,2) DEFAULT 0,
+                order_index INTEGER DEFAULT 0,
                 created_at ${timestampType}
             )`,
-            
+
             `CREATE TABLE IF NOT EXISTS credit_categories (
                 id ${idType},
                 name TEXT NOT NULL UNIQUE,
+                order_index INTEGER DEFAULT 0,
                 created_at ${timestampType}
             )`,
             
@@ -150,7 +153,43 @@ class Database {
             await this.resetSequences();
         }
 
+        // 既存テーブルにorder_indexカラムを追加（マイグレーション）
+        await this.addOrderIndexColumns();
+
         console.log('✅ テーブル作成完了');
+    }
+
+    async addOrderIndexColumns() {
+        const tables = ['expense_categories', 'wallet_categories', 'credit_categories'];
+
+        for (const table of tables) {
+            try {
+                // カラムが既に存在するかチェック
+                if (this.type === 'postgresql') {
+                    const columnExists = await this.get(
+                        `SELECT column_name FROM information_schema.columns
+                         WHERE table_name = $1 AND column_name = 'order_index'`,
+                        [table]
+                    );
+
+                    if (!columnExists) {
+                        await this.run(`ALTER TABLE ${table} ADD COLUMN order_index INTEGER DEFAULT 0`);
+                        console.log(`✅ ${table}にorder_indexカラムを追加`);
+                    }
+                } else {
+                    // SQLiteの場合
+                    const tableInfo = await this.all(`PRAGMA table_info(${table})`);
+                    const hasOrderIndex = tableInfo.some(col => col.name === 'order_index');
+
+                    if (!hasOrderIndex) {
+                        await this.run(`ALTER TABLE ${table} ADD COLUMN order_index INTEGER DEFAULT 0`);
+                        console.log(`✅ ${table}にorder_indexカラムを追加`);
+                    }
+                }
+            } catch (error) {
+                console.warn(`${table}のorder_indexカラム追加警告:`, error.message);
+            }
+        }
     }
 
     async resetSequences() {
