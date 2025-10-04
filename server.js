@@ -1157,11 +1157,13 @@ app.post('/api/parse-fuzzy', async (req, res) => {
 利用可能なカテゴリ:
 ${categoriesText}
 
-取引タイプ判定ルール:
-1. "チャージ"という文言がある場合 → type: "charge", charge_from_credit_idに"楽天カード"を自動設定
+取引タイプ判定ルール（必ず以下の4つから選択）:
+1. "チャージ"という文言がある場合 → type: "charge"
 2. "振替"という文言がある場合 → type: "transfer"
-3. "収入"や"給料"などの文言がある場合 → type: "income"
-4. それ以外 → type: "expense"
+3. "収入"や"給料"や"入金"などの文言がある場合 → type: "income"
+4. それ以外の購入・支払い → type: "expense"
+
+重要: typeは必ず "expense", "income", "transfer", "charge" のいずれか1つを選択してください。
 
 必須項目（取引タイプにより異なる）:
 【支出 (expense)】

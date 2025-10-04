@@ -139,14 +139,13 @@ async function parseFuzzyInput() {
             throw new Error(result.error || '解析に失敗しました');
         }
 
-        // 解析結果をフォームに反映
-        populateFuzzyForm(result);
+        // 解析結果を収支登録フォームに反映して入力タブに移動
+        populateMainForm(result);
 
-        // 結果エリアを表示
-        document.getElementById('fuzzy-result').classList.remove('hidden');
+        // 入力タブに切り替え
+        showView('input');
 
-        // 不足項目をチェック
-        checkMissingFields(result);
+        alert('解析結果を収支登録フォームに反映しました。内容を確認して登録してください。');
 
     } catch (error) {
         console.error('解析エラー:', error);
@@ -157,7 +156,77 @@ async function parseFuzzyInput() {
     }
 }
 
-// 解析結果をフォームに反映
+// 解析結果を収支登録フォーム（メインフォーム）に反映
+function populateMainForm(result) {
+    // 日付
+    if (result.date) {
+        document.getElementById('transaction-date').value = result.date;
+    }
+
+    // 種別
+    if (result.type) {
+        document.getElementById('transaction-type').value = result.type;
+        // 種別変更イベントを発火して表示を切り替え
+        toggleExpenseCategory();
+    }
+
+    // 金額
+    if (result.amount) {
+        document.getElementById('transaction-amount').value = result.amount;
+    }
+
+    // 説明
+    if (result.description) {
+        document.getElementById('transaction-description').value = result.description;
+    }
+
+    // メモ
+    if (result.memo) {
+        document.getElementById('transaction-memo').value = result.memo;
+    }
+
+    // 決済場所
+    if (result.payment_location) {
+        document.getElementById('payment-location').value = result.payment_location;
+    }
+
+    // 種別に応じた設定
+    if (result.type === 'expense' || result.type === 'income') {
+        // 出費カテゴリ（支出の場合のみ）
+        if (result.type === 'expense' && result.expense_category_id) {
+            document.getElementById('expense-category').value = result.expense_category_id;
+        }
+
+        // 支払い方法
+        if (result.wallet_category_id) {
+            document.querySelector('input[name="payment-method"][value="wallet"]').checked = true;
+            document.getElementById('wallet-category').value = result.wallet_category_id;
+            togglePaymentMethod();
+        } else if (result.credit_category_id) {
+            document.querySelector('input[name="payment-method"][value="credit"]').checked = true;
+            document.getElementById('credit-category').value = result.credit_category_id;
+            togglePaymentMethod();
+        }
+    } else if (result.type === 'transfer') {
+        // 振替
+        if (result.transfer_from_wallet_id) {
+            document.getElementById('transfer-from-wallet').value = result.transfer_from_wallet_id;
+        }
+        if (result.transfer_to_wallet_id) {
+            document.getElementById('transfer-to-wallet').value = result.transfer_to_wallet_id;
+        }
+    } else if (result.type === 'charge') {
+        // チャージ
+        if (result.charge_to_wallet_id) {
+            document.getElementById('charge-to-wallet').value = result.charge_to_wallet_id;
+        }
+        if (result.charge_from_credit_id) {
+            document.getElementById('charge-from-source').value = result.charge_from_credit_id;
+        }
+    }
+}
+
+// 解析結果をあいまい登録フォームに反映（旧関数、使用されない）
 function populateFuzzyForm(result) {
     // 日付（APIから返された日付、なければ今日の日付）
     const dateInput = document.getElementById('fuzzy-date');
