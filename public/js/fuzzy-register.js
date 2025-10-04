@@ -158,23 +158,100 @@ async function parseFuzzyInput() {
 function populateMainForm(result) {
     console.log('解析結果:', result);
 
-    // 日付
-    if (result.date) {
-        document.getElementById('transaction-date').value = result.date;
-    }
+    // まずフォームをクリア
+    document.getElementById('transaction-form').reset();
 
-    // 種別
+    // 日付（必ず設定）
+    const dateInput = document.getElementById('transaction-date');
+    if (result.date) {
+        dateInput.value = result.date;
+    } else {
+        // 日付がない場合は今日の日付を設定
+        const now = new Date();
+        const jstOffset = 9 * 60 * 60 * 1000;
+        const jstDate = new Date(now.getTime() + jstOffset);
+        dateInput.value = jstDate.toISOString().split('T')[0];
+    }
+    console.log('日付を設定:', dateInput.value);
+
+    // 種別（必ず設定）
     if (result.type) {
         document.getElementById('transaction-type').value = result.type;
+        console.log('種別を設定:', result.type);
         // 種別変更イベントを発火して表示を切り替え
         toggleExpenseCategory();
+    }
 
-        // チャージの場合、toggleExpenseCategory()で楽天カードが自動選択されるが、
-        // さらに確実にするため、ここでも明示的に設定
-        if (result.type === 'charge') {
-            setTimeout(() => {
-                const chargeFromSelect = document.getElementById('charge-from-source');
-                if (chargeFromSelect && !chargeFromSelect.value) {
+    // 金額（必ず設定）
+    if (result.amount) {
+        document.getElementById('transaction-amount').value = result.amount;
+        console.log('金額を設定:', result.amount);
+    }
+
+    // 説明（必ず設定）
+    if (result.description) {
+        document.getElementById('transaction-description').value = result.description;
+        console.log('説明を設定:', result.description);
+    }
+
+    // メモ（任意）
+    if (result.memo) {
+        document.getElementById('transaction-memo').value = result.memo;
+        console.log('メモを設定:', result.memo);
+    }
+
+    // 決済場所（任意）
+    if (result.payment_location) {
+        document.getElementById('payment-location').value = result.payment_location;
+        console.log('決済場所を設定:', result.payment_location);
+    }
+
+    // 種別に応じた設定をsetTimeoutで少し遅延させて確実に設定
+    setTimeout(() => {
+        if (result.type === 'expense' || result.type === 'income') {
+            // 出費カテゴリ（支出の場合のみ）
+            if (result.type === 'expense' && result.expense_category_id) {
+                document.getElementById('expense-category').value = result.expense_category_id;
+                console.log('出費カテゴリを設定:', result.expense_category_id);
+            }
+
+            // 支払い方法
+            if (result.wallet_category_id) {
+                document.querySelector('input[name="payment-method"][value="wallet"]').checked = true;
+                togglePaymentMethod();
+                document.getElementById('wallet-category').value = result.wallet_category_id;
+                console.log('財布を設定:', result.wallet_category_id);
+            } else if (result.credit_category_id) {
+                document.querySelector('input[name="payment-method"][value="credit"]').checked = true;
+                togglePaymentMethod();
+                document.getElementById('credit-category').value = result.credit_category_id;
+                console.log('クレジットカードを設定:', result.credit_category_id);
+            }
+        } else if (result.type === 'transfer') {
+            // 振替
+            if (result.transfer_from_wallet_id) {
+                document.getElementById('transfer-from-wallet').value = result.transfer_from_wallet_id;
+                console.log('振替元を設定:', result.transfer_from_wallet_id);
+            }
+            if (result.transfer_to_wallet_id) {
+                document.getElementById('transfer-to-wallet').value = result.transfer_to_wallet_id;
+                console.log('振替先を設定:', result.transfer_to_wallet_id);
+            }
+        } else if (result.type === 'charge') {
+            // チャージ先
+            if (result.charge_to_wallet_id) {
+                document.getElementById('charge-to-wallet').value = result.charge_to_wallet_id;
+                console.log('チャージ先を設定:', result.charge_to_wallet_id);
+            }
+
+            // チャージ元（楽天カードを自動選択）
+            const chargeFromSelect = document.getElementById('charge-from-source');
+            if (chargeFromSelect) {
+                if (result.charge_from_credit_id) {
+                    chargeFromSelect.value = result.charge_from_credit_id;
+                    console.log('チャージ元を設定（API）:', result.charge_from_credit_id);
+                } else {
+                    // 楽天カードを探して設定
                     for (let option of chargeFromSelect.options) {
                         if (option.text.includes('楽天カード')) {
                             chargeFromSelect.value = option.value;
@@ -183,62 +260,9 @@ function populateMainForm(result) {
                         }
                     }
                 }
-            }, 100);
+            }
         }
-    }
-
-    // 金額
-    if (result.amount) {
-        document.getElementById('transaction-amount').value = result.amount;
-    }
-
-    // 説明
-    if (result.description) {
-        document.getElementById('transaction-description').value = result.description;
-    }
-
-    // メモ
-    if (result.memo) {
-        document.getElementById('transaction-memo').value = result.memo;
-    }
-
-    // 決済場所
-    if (result.payment_location) {
-        document.getElementById('payment-location').value = result.payment_location;
-    }
-
-    // 種別に応じた設定
-    if (result.type === 'expense' || result.type === 'income') {
-        // 出費カテゴリ（支出の場合のみ）
-        if (result.type === 'expense' && result.expense_category_id) {
-            document.getElementById('expense-category').value = result.expense_category_id;
-        }
-
-        // 支払い方法
-        if (result.wallet_category_id) {
-            document.querySelector('input[name="payment-method"][value="wallet"]').checked = true;
-            document.getElementById('wallet-category').value = result.wallet_category_id;
-            togglePaymentMethod();
-        } else if (result.credit_category_id) {
-            document.querySelector('input[name="payment-method"][value="credit"]').checked = true;
-            document.getElementById('credit-category').value = result.credit_category_id;
-            togglePaymentMethod();
-        }
-    } else if (result.type === 'transfer') {
-        // 振替
-        if (result.transfer_from_wallet_id) {
-            document.getElementById('transfer-from-wallet').value = result.transfer_from_wallet_id;
-        }
-        if (result.transfer_to_wallet_id) {
-            document.getElementById('transfer-to-wallet').value = result.transfer_to_wallet_id;
-        }
-    } else if (result.type === 'charge') {
-        // チャージ
-        if (result.charge_to_wallet_id) {
-            document.getElementById('charge-to-wallet').value = result.charge_to_wallet_id;
-        }
-        // チャージ元は種別設定時に自動的に楽天カードが選択される
-    }
+    }, 150);
 }
 
 // 解析結果をあいまい登録フォームに反映（旧関数、使用されない）
