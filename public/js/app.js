@@ -1312,6 +1312,7 @@ async function loadSummary() {
             summaryItem.className = 'summary-item';
             summaryItem.draggable = true;
             summaryItem.dataset.index = index;
+            summaryItem.dataset.categoryId = item.expense_category_id;
             
             const remaining = item.remaining;
             const remainingClass = remaining >= 0 ? 'positive' : 'negative';
@@ -1388,6 +1389,7 @@ async function loadSummary() {
             summaryItem.className = 'summary-item';
             summaryItem.draggable = true;
             summaryItem.dataset.index = index;
+            summaryItem.dataset.creditId = item.category_id;
             
             summaryItem.innerHTML = `
                 <div class="category clickable" data-category-id="${item.category_id}" data-category-type="credit">${item.category}</div>

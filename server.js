@@ -1320,8 +1320,8 @@ app.get('/api/summary/:year/:month', async (req, res) => {
                  AND t.type IN ('expense', 'income') AND ${getYearMonthFormat('t.date')} = ${db.type === 'postgresql' ? '$1' : '?'}
              LEFT JOIN monthly_budgets mb ON ec.id = mb.expense_category_id
                  AND mb.year = ${db.type === 'postgresql' ? '$2' : '?'} AND mb.month = ${db.type === 'postgresql' ? '$3' : '?'}
-             GROUP BY ec.id, ec.name, mb.budget_amount
-             ORDER BY ec.name`,
+             GROUP BY ec.id, ec.name, ec.order_index, mb.budget_amount
+             ORDER BY ec.order_index, ec.name`,
             [yearMonth, year, month]
         );
 
@@ -1331,13 +1331,14 @@ app.get('/api/summary/:year/:month', async (req, res) => {
              FROM credit_categories cc
              LEFT JOIN monthly_credit_summary mcs ON cc.id = mcs.credit_category_id
                  AND mcs.year = ${db.type === 'postgresql' ? '$1' : '?'} AND mcs.month = ${db.type === 'postgresql' ? '$2' : '?'}
-             ORDER BY cc.name`,
+             ORDER BY cc.order_index, cc.name`,
             [year, month]
         );
 
         // PostgreSQLのDECIMAL型を数値に変換
         const expenseSummaryParsed = expenseSummary.map(item => ({
             ...item,
+            expense_category_id: item.category_id,
             total: parseFloat(item.total) || 0,
             budget: parseFloat(item.budget) || 0,
             remaining: parseFloat(item.remaining) || 0
