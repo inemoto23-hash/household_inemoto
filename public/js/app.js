@@ -1150,19 +1150,23 @@ function populateYearMonthSelectors() {
 async function loadBudget() {
     const year = document.getElementById('budget-year').value;
     const month = document.getElementById('budget-month').value;
-    
+
     try {
         const response = await fetch(`/api/budgets/${year}/${month}`);
         const budgets = await response.json();
-        
+
+        // カテゴリを再取得して最新の並び順を反映
+        const categoriesResponse = await fetch('/api/expense-categories');
+        const categories = await categoriesResponse.json();
+
         const budgetList = document.getElementById('budget-list');
         budgetList.innerHTML = '';
-        
+
         // 累計予算額を計算
         let totalBudget = 0;
-        
+
         // 保存された順序で並び替え
-        const sortedCategories = expenseCategories;
+        const sortedCategories = categories;
 
         sortedCategories.forEach((category, index) => {
             const budget = budgets.find(b => b.expense_category_id === category.id);
@@ -1544,6 +1548,7 @@ async function saveItemOrder(container) {
         type = 'expense';
         orderItems = items.map((item, index) => {
             const categoryId = item.dataset.categoryId || item.querySelector('[data-category-id]')?.dataset.categoryId;
+            console.log(`${containerId}[${index}]: categoryId=${categoryId}, id=${parseInt(categoryId)}`);
             return {
                 id: parseInt(categoryId),
                 order_index: index

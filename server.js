@@ -1627,6 +1627,7 @@ app.get('/test', (req, res) => {
 app.post('/api/update-order', async (req, res) => {
     try {
         const { type, items } = req.body;
+        console.log('並び順更新リクエスト:', { type, items });
 
         if (!type || !items || !Array.isArray(items)) {
             return res.status(400).json({ error: '無効なリクエストです' });
@@ -1649,6 +1650,7 @@ app.post('/api/update-order', async (req, res) => {
 
         // 各アイテムのorder_indexを更新
         for (const item of items) {
+            console.log(`UPDATE ${tableName} SET order_index=${item.order_index} WHERE id=${item.id}`);
             await db.run(
                 `UPDATE ${tableName} SET order_index = ${db.type === 'postgresql' ? '$1' : '?'} WHERE id = ${db.type === 'postgresql' ? '$2' : '?'}`,
                 [item.order_index, item.id]
