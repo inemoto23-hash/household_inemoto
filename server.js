@@ -942,16 +942,21 @@ app.delete('/api/transactions/:id', async (req, res) => {
             const month = transactionDate.getMonth() + 1;
 
             await db.run(
-                `UPDATE monthly_credit_summary 
-                 SET total_amount = total_amount - ? 
-                 WHERE year = ? AND month = ? AND credit_category_id = ?`,
+                `UPDATE monthly_credit_summary
+                 SET total_amount = total_amount - ${db.type === 'postgresql' ? '$1' : '?'}
+                 WHERE year = ${db.type === 'postgresql' ? '$2' : '?'} AND month = ${db.type === 'postgresql' ? '$3' : '?'} AND credit_category_id = ${db.type === 'postgresql' ? '$4' : '?'}`,
                 [transaction.amount, year, month, transaction.credit_category_id]
             );
         }
 
         // 商品詳細を削除（テーブルが存在する場合のみ）
         try {
-            const tableExists = await db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='transaction_items'");
+            let tableExists;
+            if (db.type === 'postgresql') {
+                tableExists = await db.get("SELECT table_name FROM information_schema.tables WHERE table_name = 'transaction_items'");
+            } else {
+                tableExists = await db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='transaction_items'");
+            }
             if (tableExists) {
                 await db.run(`DELETE FROM transaction_items WHERE transaction_id = ${db.type === 'postgresql' ? '$1' : '?'}`, [id]);
             }
@@ -1028,11 +1033,23 @@ app.get('/api/budgets/:year/:month', async (req, res) => {
 app.post('/api/budgets', async (req, res) => {
     try {
         const { year, month, expense_category_id, budget_amount } = req.body;
-        await db.run(
-            `INSERT OR REPLACE INTO monthly_budgets (year, month, expense_category_id, budget_amount)
-             VALUES (?, ?, ?, ?)`,
-            [year, month, expense_category_id, budget_amount]
-        );
+
+        if (db.type === 'postgresql') {
+            await db.run(
+                `INSERT INTO monthly_budgets (year, month, expense_category_id, budget_amount)
+                 VALUES ($1, $2, $3, $4)
+                 ON CONFLICT (year, month, expense_category_id)
+                 DO UPDATE SET budget_amount = EXCLUDED.budget_amount`,
+                [year, month, expense_category_id, budget_amount]
+            );
+        } else {
+            await db.run(
+                `INSERT OR REPLACE INTO monthly_budgets (year, month, expense_category_id, budget_amount)
+                 VALUES (?, ?, ?, ?)`,
+                [year, month, expense_category_id, budget_amount]
+            );
+        }
+
         res.json({ message: '予算を設定しました' });
     } catch (error) {
         res.status(500).json({ error: '予算の設定に失敗しました' });
