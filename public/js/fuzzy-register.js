@@ -253,13 +253,11 @@ function populateMainForm(result) {
             console.log('charge_from_credit:', result.charge_from_credit);
             console.log('charge_from_credit_id:', result.charge_from_credit_id);
 
-            // チャージ先
+            // チャージ先（数値IDをそのまま使用）
             const chargeToSelect = document.getElementById('charge-to-wallet');
             if (result.charge_to_wallet_id) {
-                // IDをwallet_X形式に変換
-                const walletValue = `wallet_${result.charge_to_wallet_id}`;
-                chargeToSelect.value = walletValue;
-                console.log('✅ チャージ先を設定:', result.charge_to_wallet_id, '→', walletValue);
+                chargeToSelect.value = result.charge_to_wallet_id;
+                console.log('✅ チャージ先を設定:', result.charge_to_wallet_id);
             } else {
                 console.log('⚠️ charge_to_wallet_idが存在しません');
             }
