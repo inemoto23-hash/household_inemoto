@@ -145,8 +145,6 @@ async function parseFuzzyInput() {
         // 入力タブに切り替え
         showView('input');
 
-        alert('解析結果を収支登録フォームに反映しました。内容を確認して登録してください。');
-
     } catch (error) {
         console.error('解析エラー:', error);
         alert('解析エラー: ' + error.message);
@@ -158,6 +156,8 @@ async function parseFuzzyInput() {
 
 // 解析結果を収支登録フォーム（メインフォーム）に反映
 function populateMainForm(result) {
+    console.log('解析結果:', result);
+
     // 日付
     if (result.date) {
         document.getElementById('transaction-date').value = result.date;
@@ -220,8 +220,20 @@ function populateMainForm(result) {
         if (result.charge_to_wallet_id) {
             document.getElementById('charge-to-wallet').value = result.charge_to_wallet_id;
         }
+
+        // チャージ元を設定（IDがあればそれを使用、なければ楽天カードを探して設定）
         if (result.charge_from_credit_id) {
             document.getElementById('charge-from-source').value = result.charge_from_credit_id;
+        } else {
+            // 楽天カードのIDを探して設定
+            const chargeFromSelect = document.getElementById('charge-from-source');
+            for (let option of chargeFromSelect.options) {
+                if (option.text.includes('楽天カード')) {
+                    chargeFromSelect.value = option.value;
+                    console.log('楽天カードを自動選択:', option.value);
+                    break;
+                }
+            }
         }
     }
 }
