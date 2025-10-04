@@ -145,9 +145,39 @@ class Database {
                     }
                 }
             }
+
+            // シーケンスをリセット
+            await this.resetSequences();
         }
-        
+
         console.log('✅ テーブル作成完了');
+    }
+
+    async resetSequences() {
+        if (this.type !== 'postgresql') return;
+
+        const tables = [
+            'expense_categories',
+            'wallet_categories',
+            'credit_categories',
+            'transactions',
+            'monthly_budgets',
+            'monthly_credit_summary'
+        ];
+
+        for (const table of tables) {
+            try {
+                // 各テーブルの最大IDを取得
+                const maxIdResult = await this.get(`SELECT MAX(id) as max_id FROM ${table}`);
+                const maxId = maxIdResult?.max_id || 0;
+
+                // シーケンスをリセット
+                await this.run(`SELECT setval(pg_get_serial_sequence('${table}', 'id'), ${maxId}, true)`);
+                console.log(`✅ ${table}のシーケンスをリセット: ${maxId}`);
+            } catch (error) {
+                console.warn(`${table}のシーケンスリセット警告:`, error.message);
+            }
+        }
     }
 
     async run(sql, params = []) {

@@ -490,7 +490,7 @@ app.post('/api/transactions', async (req, res) => {
                 const outResult = await db.run(
                     db.type === 'postgresql' ?
                     `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
-                     VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7)` :
+                     VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7) RETURNING id` :
                     `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
                      VALUES (?, ?, 'expense', ?, ?, ?, ?, ?)`,
                     [date, amount, transfer_from_wallet_id, `引落: ${description || '引落処理'}`, memo, payment_location, notes]
@@ -511,7 +511,7 @@ app.post('/api/transactions', async (req, res) => {
                 const outResult = await db.run(
                     db.type === 'postgresql' ?
                     `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
-                     VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7)` :
+                     VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7) RETURNING id` :
                     `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
                      VALUES (?, ?, 'expense', ?, ?, ?, ?, ?)`,
                     [date, amount, transfer_from_wallet_id, `振替出金: ${description || '財布間振替'}`, memo, payment_location, notes]
@@ -520,7 +520,7 @@ app.post('/api/transactions', async (req, res) => {
                 const inResult = await db.run(
                     db.type === 'postgresql' ?
                     `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
-                     VALUES ($1, $2, 'income', $3, $4, $5, $6, $7)` :
+                     VALUES ($1, $2, 'income', $3, $4, $5, $6, $7) RETURNING id` :
                     `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
                      VALUES (?, ?, 'income', ?, ?, ?, ?, ?)`,
                     [date, amount, transfer_to_wallet_id, `振替入金: ${description || '財布間振替'}`, memo, payment_location, notes]
@@ -587,7 +587,7 @@ app.post('/api/transactions', async (req, res) => {
             const budgetOutResult = await db.run(
                 db.type === 'postgresql' ?
                 `INSERT INTO transactions (date, amount, type, expense_category_id, description, memo, payment_location, notes)
-                 VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7)` :
+                 VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7) RETURNING id` :
                 `INSERT INTO transactions (date, amount, type, expense_category_id, description, memo, payment_location, notes)
                  VALUES (?, ?, 'expense', ?, ?, ?, ?, ?)`,
                 [date, amount, budget_from_category_id, `予算振替（減額）: ${description || '予算間振替'}`, memo, payment_location, notes]
@@ -596,7 +596,7 @@ app.post('/api/transactions', async (req, res) => {
             const budgetInResult = await db.run(
                 db.type === 'postgresql' ?
                 `INSERT INTO transactions (date, amount, type, expense_category_id, description, memo, payment_location, notes)
-                 VALUES ($1, $2, 'income', $3, $4, $5, $6, $7)` :
+                 VALUES ($1, $2, 'income', $3, $4, $5, $6, $7) RETURNING id` :
                 `INSERT INTO transactions (date, amount, type, expense_category_id, description, memo, payment_location, notes)
                  VALUES (?, ?, 'income', ?, ?, ?, ?, ?)`,
                 [date, amount, budget_to_category_id, `予算振替（増額）: ${description || '予算間振替'}`, memo, payment_location, notes]
@@ -621,7 +621,7 @@ app.post('/api/transactions', async (req, res) => {
                 const chargeExpenseResult = await db.run(
                     db.type === 'postgresql' ?
                     `INSERT INTO transactions (date, amount, type, credit_category_id, description, memo, payment_location, notes)
-                     VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7)` :
+                     VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7) RETURNING id` :
                     `INSERT INTO transactions (date, amount, type, credit_category_id, description, memo, payment_location, notes)
                      VALUES (?, ?, 'expense', ?, ?, ?, ?, ?)`,
                     [date, amount, charge_from_credit_id, `チャージ: ${description || 'クレジットチャージ'}`, memo, payment_location, notes]
@@ -630,7 +630,7 @@ app.post('/api/transactions', async (req, res) => {
                 const chargeIncomeResult = await db.run(
                     db.type === 'postgresql' ?
                     `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
-                     VALUES ($1, $2, 'income', $3, $4, $5, $6, $7)` :
+                     VALUES ($1, $2, 'income', $3, $4, $5, $6, $7) RETURNING id` :
                     `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
                      VALUES (?, ?, 'income', ?, ?, ?, ?, ?)`,
                     [date, amount, charge_to_wallet_id, `チャージ入金: ${description || 'クレジットチャージ'}`, memo, payment_location, notes]
@@ -684,7 +684,7 @@ app.post('/api/transactions', async (req, res) => {
                 const chargeOutResult = await db.run(
                     db.type === 'postgresql' ?
                     `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
-                     VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7)` :
+                     VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7) RETURNING id` :
                     `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
                      VALUES (?, ?, 'expense', ?, ?, ?, ?, ?)`,
                     [date, amount, charge_from_wallet_id, `チャージ: ${description || '財布チャージ'}`, memo, payment_location, notes]
@@ -693,7 +693,7 @@ app.post('/api/transactions', async (req, res) => {
                 const chargeInResult = await db.run(
                     db.type === 'postgresql' ?
                     `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
-                     VALUES ($1, $2, 'income', $3, $4, $5, $6, $7)` :
+                     VALUES ($1, $2, 'income', $3, $4, $5, $6, $7) RETURNING id` :
                     `INSERT INTO transactions (date, amount, type, wallet_category_id, description, memo, payment_location, notes)
                      VALUES (?, ?, 'income', ?, ?, ?, ?, ?)`,
                     [date, amount, charge_to_wallet_id, `チャージ入金: ${description || '財布チャージ'}`, memo, payment_location, notes]
@@ -723,11 +723,14 @@ app.post('/api/transactions', async (req, res) => {
             const result = await db.run(
                 db.type === 'postgresql' ?
                 `INSERT INTO transactions (date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, payment_location, notes)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)` :
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id` :
                 `INSERT INTO transactions (date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, payment_location, notes)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [date, amount, type, expense_category_id, wallet_category_id, credit_category_id, description, memo, payment_location, notes]
             );
+
+            // PostgreSQLの場合はRETURNING句の結果からIDを取得
+            const insertedId = db.type === 'postgresql' ? result.rows[0].id : result.lastID;
 
             // 商品詳細と決済場所マスタの機能は削除されました
             // transaction_itemsテーブルとpayment_locationsテーブルは存在しません
@@ -774,7 +777,7 @@ app.post('/api/transactions', async (req, res) => {
                 }
             }
 
-            res.json({ id: result.lastID, message: '取引を記録しました' });
+            res.json({ id: insertedId, message: '取引を記録しました' });
         }
     } catch (error) {
         console.error('取引記録エラー:', error);
