@@ -168,6 +168,23 @@ function populateMainForm(result) {
         document.getElementById('transaction-type').value = result.type;
         // 種別変更イベントを発火して表示を切り替え
         toggleExpenseCategory();
+
+        // チャージの場合、toggleExpenseCategory()で楽天カードが自動選択されるが、
+        // さらに確実にするため、ここでも明示的に設定
+        if (result.type === 'charge') {
+            setTimeout(() => {
+                const chargeFromSelect = document.getElementById('charge-from-source');
+                if (chargeFromSelect && !chargeFromSelect.value) {
+                    for (let option of chargeFromSelect.options) {
+                        if (option.text.includes('楽天カード')) {
+                            chargeFromSelect.value = option.value;
+                            console.log('チャージ元に楽天カードを自動設定:', option.value);
+                            break;
+                        }
+                    }
+                }
+            }, 100);
+        }
     }
 
     // 金額
@@ -220,21 +237,7 @@ function populateMainForm(result) {
         if (result.charge_to_wallet_id) {
             document.getElementById('charge-to-wallet').value = result.charge_to_wallet_id;
         }
-
-        // チャージ元を設定（IDがあればそれを使用、なければ楽天カードを探して設定）
-        if (result.charge_from_credit_id) {
-            document.getElementById('charge-from-source').value = result.charge_from_credit_id;
-        } else {
-            // 楽天カードのIDを探して設定
-            const chargeFromSelect = document.getElementById('charge-from-source');
-            for (let option of chargeFromSelect.options) {
-                if (option.text.includes('楽天カード')) {
-                    chargeFromSelect.value = option.value;
-                    console.log('楽天カードを自動選択:', option.value);
-                    break;
-                }
-            }
-        }
+        // チャージ元は種別設定時に自動的に楽天カードが選択される
     }
 }
 
