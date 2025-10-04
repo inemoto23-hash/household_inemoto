@@ -160,30 +160,7 @@ function populateMainForm(result) {
     console.log(JSON.stringify(result, null, 2));
     console.log('========================');
 
-    // まずフォームをクリア
-    document.getElementById('transaction-form').reset();
-
-    // 日付（必ず設定）
-    const dateInput = document.getElementById('transaction-date');
-    console.log('result.dateの値:', result.date, 'typeof:', typeof result.date);
-
-    if (result.date) {
-        // ISO形式の場合はYYYY-MM-DDに変換
-        const dateStr = result.date.split('T')[0];
-        dateInput.value = dateStr;
-        console.log('日付を設定（API）:', dateStr);
-    } else {
-        // 日付がない場合は今日の日付を設定
-        const now = new Date();
-        const jstOffset = 9 * 60 * 60 * 1000;
-        const jstDate = new Date(now.getTime() + jstOffset);
-        const todayStr = jstDate.toISOString().split('T')[0];
-        dateInput.value = todayStr;
-        console.log('日付を設定（今日）:', todayStr);
-    }
-    console.log('最終的な日付の値:', dateInput.value);
-
-    // 種別（必ず設定）
+    // 種別（最初に設定してDOMを構築）
     if (result.type) {
         document.getElementById('transaction-type').value = result.type;
         console.log('種別を設定:', result.type);
@@ -191,32 +168,53 @@ function populateMainForm(result) {
         toggleExpenseCategory();
     }
 
-    // 金額（必ず設定）
-    if (result.amount) {
-        document.getElementById('transaction-amount').value = result.amount;
-        console.log('金額を設定:', result.amount);
-    }
-
-    // 説明（必ず設定）
-    if (result.description) {
-        document.getElementById('transaction-description').value = result.description;
-        console.log('説明を設定:', result.description);
-    }
-
-    // メモ（任意）
-    if (result.memo) {
-        document.getElementById('transaction-memo').value = result.memo;
-        console.log('メモを設定:', result.memo);
-    }
-
-    // 決済場所（任意）
-    if (result.payment_location) {
-        document.getElementById('payment-location').value = result.payment_location;
-        console.log('決済場所を設定:', result.payment_location);
-    }
-
-    // 種別に応じた設定をsetTimeoutで少し遅延させて確実に設定
+    // toggleExpenseCategory()でDOMが更新されるのを待ってから値を設定
     setTimeout(() => {
+        // 日付（必ず設定）
+        const dateInput = document.getElementById('transaction-date');
+        console.log('result.dateの値:', result.date, 'typeof:', typeof result.date);
+
+        if (result.date) {
+            // ISO形式の場合はYYYY-MM-DDに変換
+            const dateStr = result.date.split('T')[0];
+            dateInput.value = dateStr;
+            console.log('日付を設定（API）:', dateStr);
+        } else {
+            // 日付がない場合は今日の日付を設定
+            const now = new Date();
+            const jstOffset = 9 * 60 * 60 * 1000;
+            const jstDate = new Date(now.getTime() + jstOffset);
+            const todayStr = jstDate.toISOString().split('T')[0];
+            dateInput.value = todayStr;
+            console.log('日付を設定（今日）:', todayStr);
+        }
+        console.log('最終的な日付の値:', dateInput.value);
+
+        // 金額（必ず設定）
+        if (result.amount) {
+            document.getElementById('transaction-amount').value = result.amount;
+            console.log('金額を設定:', result.amount);
+        }
+
+        // 説明（必ず設定）
+        if (result.description) {
+            document.getElementById('transaction-description').value = result.description;
+            console.log('説明を設定:', result.description);
+        }
+
+        // メモ（任意）
+        if (result.memo) {
+            document.getElementById('transaction-memo').value = result.memo;
+            console.log('メモを設定:', result.memo);
+        }
+
+        // 決済場所（任意）
+        if (result.payment_location) {
+            document.getElementById('payment-location').value = result.payment_location;
+            console.log('決済場所を設定:', result.payment_location);
+        }
+
+        // 種別に応じた設定
         if (result.type === 'expense' || result.type === 'income') {
             // 出費カテゴリ（支出の場合のみ）
             if (result.type === 'expense' && result.expense_category_id) {
@@ -293,7 +291,7 @@ function populateMainForm(result) {
             }
             console.log('=== チャージの設定終了 ===');
         }
-    }, 150);
+    }, 200); // DOM更新を確実に待つため200msに延長
 }
 
 // 解析結果をあいまい登録フォームに反映（旧関数、使用されない）
