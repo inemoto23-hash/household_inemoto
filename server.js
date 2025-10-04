@@ -266,7 +266,7 @@ app.get('/api/wallet-categories', async (req, res) => {
 
 app.get('/api/credit-categories', async (req, res) => {
     try {
-        const credits = await db.all('SELECT * FROM credit_categories ORDER BY name');
+        const credits = await db.all(`SELECT * FROM credit_categories ORDER BY CASE WHEN name = '楽天カード' THEN 0 ELSE 1 END, name`);
         res.json(credits);
     } catch (error) {
         res.status(500).json({ error: 'クレジットカードカテゴリの取得に失敗しました' });
@@ -1127,7 +1127,7 @@ app.post('/api/parse-fuzzy', async (req, res) => {
         // カテゴリ情報を取得
         const expenseCategories = await db.all('SELECT name FROM expense_categories ORDER BY name');
         const walletCategories = await db.all('SELECT name FROM wallet_categories ORDER BY name');
-        const creditCategories = await db.all('SELECT name FROM credit_categories ORDER BY name');
+        const creditCategories = await db.all(`SELECT name FROM credit_categories ORDER BY CASE WHEN name = '楽天カード' THEN 0 ELSE 1 END, name`);
 
         const categoriesText = `
 出費カテゴリ: ${expenseCategories.map(c => c.name).join('、')}
@@ -1157,12 +1157,24 @@ app.post('/api/parse-fuzzy', async (req, res) => {
 利用可能なカテゴリ:
 ${categoriesText}
 
-必須項目:
-- type: "expense"（支出）または"income"（収入）
-- amount: 金額（数値）
-- expense_category: 出費カテゴリ名（完全一致）
-- wallet_category または credit_category: 財布カテゴリ名またはクレジットカード名（完全一致）
-- description: 説明文
+取引タイプ判定ルール:
+1. "チャージ"という文言がある場合 → type: "charge", charge_from_credit_idに"楽天カード"を自動設定
+2. "振替"という文言がある場合 → type: "transfer"
+3. "収入"や"給料"などの文言がある場合 → type: "income"
+4. それ以外 → type: "expense"
+
+必須項目（取引タイプにより異なる）:
+【支出 (expense)】
+- amount, expense_category, (wallet_category OR credit_category), description
+
+【収入 (income)】
+- amount, expense_category, wallet_category, description
+
+【振替 (transfer)】
+- amount, transfer_from_wallet, transfer_to_wallet, description
+
+【チャージ (charge)】
+- amount, charge_to_wallet, charge_from_credit（"楽天カード"を自動設定）, description
 
 任意項目:
 - date: 日付（YYYY-MM-DD形式。「昨日」「一昨日」「10月3日」などの表現があれば日付に変換。なければnull）
@@ -1171,12 +1183,16 @@ ${categoriesText}
 
 JSON形式（説明文・マークダウン不要）:
 {
-  "type": "expense" or "income",
+  "type": "expense" | "income" | "transfer" | "charge",
   "amount": 数値,
   "date": "YYYY-MM-DD" または null,
-  "expense_category": "カテゴリ名",
-  "wallet_category": "財布名" または null,
-  "credit_category": "クレジットカード名" または null,
+  "expense_category": "カテゴリ名" (expense/incomeの場合),
+  "wallet_category": "財布名" (expense/incomeの場合) または null,
+  "credit_category": "クレジットカード名" (expenseの場合) または null,
+  "transfer_from_wallet": "財布名" (transferの場合) または null,
+  "transfer_to_wallet": "財布名" (transferの場合) または null,
+  "charge_to_wallet": "財布名" (chargeの場合) または null,
+  "charge_from_credit": "楽天カード" (chargeの場合は必ず"楽天カード") または null,
   "description": "説明文",
   "payment_location": "店舗名" または null,
   "memo": "メモ" または null,
@@ -1223,6 +1239,28 @@ JSON形式（説明文・マークダウン不要）:
         if (parsed.credit_category) {
             const credit = await db.get(`SELECT id FROM credit_categories WHERE name = ${db.type === 'postgresql' ? '$1' : '?'}`, [parsed.credit_category]);
             parsed.credit_category_id = credit?.id || null;
+        }
+
+        // 振替の場合のID取得
+        if (parsed.transfer_from_wallet) {
+            const wallet = await db.get(`SELECT id FROM wallet_categories WHERE name = ${db.type === 'postgresql' ? '$1' : '?'}`, [parsed.transfer_from_wallet]);
+            parsed.transfer_from_wallet_id = wallet?.id || null;
+        }
+
+        if (parsed.transfer_to_wallet) {
+            const wallet = await db.get(`SELECT id FROM wallet_categories WHERE name = ${db.type === 'postgresql' ? '$1' : '?'}`, [parsed.transfer_to_wallet]);
+            parsed.transfer_to_wallet_id = wallet?.id || null;
+        }
+
+        // チャージの場合のID取得
+        if (parsed.charge_to_wallet) {
+            const wallet = await db.get(`SELECT id FROM wallet_categories WHERE name = ${db.type === 'postgresql' ? '$1' : '?'}`, [parsed.charge_to_wallet]);
+            parsed.charge_to_wallet_id = wallet?.id || null;
+        }
+
+        if (parsed.charge_from_credit) {
+            const credit = await db.get(`SELECT id FROM credit_categories WHERE name = ${db.type === 'postgresql' ? '$1' : '?'}`, [parsed.charge_from_credit]);
+            parsed.charge_from_credit_id = credit?.id || null;
         }
 
         res.json(parsed);
