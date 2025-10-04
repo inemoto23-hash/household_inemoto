@@ -355,13 +355,18 @@ app.get('/api/transactions/:id', async (req, res) => {
             }
             if (tableExists) {
                 const items = await db.all(
-                    `SELECT ti.*, ec.name as expense_category_name 
+                    `SELECT ti.*, ec.name as expense_category_name
                      FROM transaction_items ti
                      LEFT JOIN expense_categories ec ON ti.expense_category_id = ec.id
                      WHERE ti.transaction_id = ?`,
                     [id]
                 );
-                transaction.items = items;
+                // itemsのamountも数値に変換
+                transaction.items = items.map(item => ({
+                    ...item,
+                    amount: parseFloat(item.amount) || 0,
+                    quantity: parseFloat(item.quantity) || 0
+                }));
             } else {
                 transaction.items = [];
             }
@@ -369,6 +374,9 @@ app.get('/api/transactions/:id', async (req, res) => {
             console.warn('個別取引の商品詳細取得エラー:', itemError);
             transaction.items = [];
         }
+
+        // PostgreSQLのDECIMAL型を数値に変換
+        transaction.amount = parseFloat(transaction.amount) || 0;
 
         res.json(transaction);
     } catch (error) {
@@ -417,13 +425,18 @@ app.get('/api/transactions', async (req, res) => {
             if (tableExists) {
                 for (const transaction of transactions) {
                     const items = await db.all(
-                        `SELECT ti.*, ec.name as expense_category_name 
+                        `SELECT ti.*, ec.name as expense_category_name
                          FROM transaction_items ti
-                         LEFT JOIN expense_categories ec ON ti.expense_category_id = ec.id 
+                         LEFT JOIN expense_categories ec ON ti.expense_category_id = ec.id
                          WHERE ti.transaction_id = ?`,
                         [transaction.id]
                     );
-                    transaction.items = items;
+                    // itemsのamountも数値に変換
+                    transaction.items = items.map(item => ({
+                        ...item,
+                        amount: parseFloat(item.amount) || 0,
+                        quantity: parseFloat(item.quantity) || 0
+                    }));
                 }
             } else {
                 console.log('transaction_itemsテーブルが存在しません。商品詳細はスキップします。');
@@ -437,9 +450,15 @@ app.get('/api/transactions', async (req, res) => {
                 transaction.items = [];
             }
         }
-        
+
+        // PostgreSQLのDECIMAL型を数値に変換
+        const transactionsParsed = transactions.map(t => ({
+            ...t,
+            amount: parseFloat(t.amount) || 0
+        }));
+
         console.log(`取得された取引数: ${transactions.length}`);
-        res.json(transactions);
+        res.json(transactionsParsed);
     } catch (error) {
         console.error('取引取得エラー:', error);
         res.status(500).json({ error: '取引記録の取得に失敗しました' });
@@ -1009,9 +1028,15 @@ app.get('/api/transactions/date/:date', async (req, res) => {
             WHERE ${getDateOnly('t.date')} = ${db.type === 'postgresql' ? '$1::date' : 'date(?)'}
             ORDER BY t.created_at DESC
         `, [date]);
-        
+
+        // PostgreSQLのDECIMAL型を数値に変換
+        const transactionsParsed = transactions.map(t => ({
+            ...t,
+            amount: parseFloat(t.amount) || 0
+        }));
+
         console.log(`取得された取引数: ${transactions.length}`);
-        res.json(transactions);
+        res.json(transactionsParsed);
     } catch (error) {
         console.error('日付別取引取得エラー:', error);
         res.status(500).json({ error: '取引の取得に失敗しました' });
@@ -1029,7 +1054,12 @@ app.get('/api/budgets/:year/:month', async (req, res) => {
              WHERE mb.year = ${db.type === 'postgresql' ? '$1' : '?'} AND mb.month = ${db.type === 'postgresql' ? '$2' : '?'}`,
             [year, month]
         );
-        res.json(budgets);
+        // PostgreSQLのDECIMAL型を数値に変換
+        const budgetsParsed = budgets.map(budget => ({
+            ...budget,
+            budget_amount: parseFloat(budget.budget_amount) || 0
+        }));
+        res.json(budgetsParsed);
     } catch (error) {
         res.status(500).json({ error: '予算の取得に失敗しました' });
     }
