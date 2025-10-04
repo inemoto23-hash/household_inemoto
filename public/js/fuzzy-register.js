@@ -267,15 +267,37 @@ function populateMainForm(result) {
             console.log('chargeFromSelectのオプション数:', chargeFromSelect?.options.length);
 
             if (chargeFromSelect) {
+                // 全オプションを表示
+                console.log('=== 全オプション ===');
+                for (let i = 0; i < chargeFromSelect.options.length; i++) {
+                    const opt = chargeFromSelect.options[i];
+                    console.log(`オプション[${i}]: value="${opt.value}" text="${opt.text}"`);
+                }
+                console.log('==================');
+
                 if (result.charge_from_credit_id) {
-                    chargeFromSelect.value = result.charge_from_credit_id;
+                    console.log(`設定しようとしているID: ${result.charge_from_credit_id} (type: ${typeof result.charge_from_credit_id})`);
+                    chargeFromSelect.value = String(result.charge_from_credit_id);
                     console.log('✅ チャージ元を設定（API）:', result.charge_from_credit_id);
+                    console.log('設定直後の値:', chargeFromSelect.value);
+
+                    // 値が設定されているか確認
+                    if (!chargeFromSelect.value) {
+                        console.log('❌ 値が設定されませんでした。楽天カードを探します...');
+                        // 楽天カードを探して設定
+                        for (let option of chargeFromSelect.options) {
+                            if (option.text.includes('楽天カード')) {
+                                chargeFromSelect.value = option.value;
+                                console.log('✅ チャージ元に楽天カードを自動設定:', option.value);
+                                break;
+                            }
+                        }
+                    }
                 } else {
                     console.log('⚠️ charge_from_credit_idが存在しない。楽天カードを探します...');
                     // 楽天カードを探して設定
                     let found = false;
                     for (let option of chargeFromSelect.options) {
-                        console.log('オプション:', option.value, option.text);
                         if (option.text.includes('楽天カード')) {
                             chargeFromSelect.value = option.value;
                             console.log('✅ チャージ元に楽天カードを自動設定:', option.value);
