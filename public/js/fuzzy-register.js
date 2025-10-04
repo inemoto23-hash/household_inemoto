@@ -156,23 +156,32 @@ async function parseFuzzyInput() {
 
 // 解析結果を収支登録フォーム（メインフォーム）に反映
 function populateMainForm(result) {
-    console.log('解析結果:', result);
+    console.log('=== 解析結果（生データ） ===');
+    console.log(JSON.stringify(result, null, 2));
+    console.log('========================');
 
     // まずフォームをクリア
     document.getElementById('transaction-form').reset();
 
     // 日付（必ず設定）
     const dateInput = document.getElementById('transaction-date');
+    console.log('result.dateの値:', result.date, 'typeof:', typeof result.date);
+
     if (result.date) {
-        dateInput.value = result.date;
+        // ISO形式の場合はYYYY-MM-DDに変換
+        const dateStr = result.date.split('T')[0];
+        dateInput.value = dateStr;
+        console.log('日付を設定（API）:', dateStr);
     } else {
         // 日付がない場合は今日の日付を設定
         const now = new Date();
         const jstOffset = 9 * 60 * 60 * 1000;
         const jstDate = new Date(now.getTime() + jstOffset);
-        dateInput.value = jstDate.toISOString().split('T')[0];
+        const todayStr = jstDate.toISOString().split('T')[0];
+        dateInput.value = todayStr;
+        console.log('日付を設定（今日）:', todayStr);
     }
-    console.log('日付を設定:', dateInput.value);
+    console.log('最終的な日付の値:', dateInput.value);
 
     // 種別（必ず設定）
     if (result.type) {
@@ -238,29 +247,51 @@ function populateMainForm(result) {
                 console.log('振替先を設定:', result.transfer_to_wallet_id);
             }
         } else if (result.type === 'charge') {
+            console.log('=== チャージの設定開始 ===');
+            console.log('charge_to_wallet:', result.charge_to_wallet);
+            console.log('charge_to_wallet_id:', result.charge_to_wallet_id);
+            console.log('charge_from_credit:', result.charge_from_credit);
+            console.log('charge_from_credit_id:', result.charge_from_credit_id);
+
             // チャージ先
+            const chargeToSelect = document.getElementById('charge-to-wallet');
             if (result.charge_to_wallet_id) {
-                document.getElementById('charge-to-wallet').value = result.charge_to_wallet_id;
-                console.log('チャージ先を設定:', result.charge_to_wallet_id);
+                chargeToSelect.value = result.charge_to_wallet_id;
+                console.log('✅ チャージ先を設定:', result.charge_to_wallet_id);
+            } else {
+                console.log('⚠️ charge_to_wallet_idが存在しません');
             }
+            console.log('チャージ先の最終値:', chargeToSelect.value);
 
             // チャージ元（楽天カードを自動選択）
             const chargeFromSelect = document.getElementById('charge-from-source');
+            console.log('chargeFromSelectの存在:', !!chargeFromSelect);
+            console.log('chargeFromSelectのオプション数:', chargeFromSelect?.options.length);
+
             if (chargeFromSelect) {
                 if (result.charge_from_credit_id) {
                     chargeFromSelect.value = result.charge_from_credit_id;
-                    console.log('チャージ元を設定（API）:', result.charge_from_credit_id);
+                    console.log('✅ チャージ元を設定（API）:', result.charge_from_credit_id);
                 } else {
+                    console.log('⚠️ charge_from_credit_idが存在しない。楽天カードを探します...');
                     // 楽天カードを探して設定
+                    let found = false;
                     for (let option of chargeFromSelect.options) {
+                        console.log('オプション:', option.value, option.text);
                         if (option.text.includes('楽天カード')) {
                             chargeFromSelect.value = option.value;
-                            console.log('チャージ元に楽天カードを自動設定:', option.value);
+                            console.log('✅ チャージ元に楽天カードを自動設定:', option.value);
+                            found = true;
                             break;
                         }
                     }
+                    if (!found) {
+                        console.log('❌ 楽天カードが見つかりませんでした');
+                    }
                 }
+                console.log('チャージ元の最終値:', chargeFromSelect.value);
             }
+            console.log('=== チャージの設定終了 ===');
         }
     }, 150);
 }
