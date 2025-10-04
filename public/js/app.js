@@ -12,6 +12,13 @@ function formatDateForJapan(date) {
     return `${year}-${month}-${day}`;
 }
 
+// ISO日付文字列をYYYY-MM-DD形式に変換
+function formatISODateToYYYYMMDD(isoString) {
+    if (!isoString) return '';
+    // ISO形式（2025-10-03T00:00:00.000Zなど）からYYYY-MM-DDを抽出
+    return isoString.split('T')[0];
+}
+
 // 日本時間(UTC+9)での1日あたり使用可能金額を計算
 function calculateDailyBudget(remainingAmount) {
     // 現在の日本時間を取得（UTC+9）
@@ -1914,7 +1921,7 @@ async function editTransaction(transactionId) {
         showView('input');
         
         // フォームに値を設定
-        document.getElementById('transaction-date').value = transaction.date;
+        document.getElementById('transaction-date').value = formatISODateToYYYYMMDD(transaction.date);
         document.getElementById('transaction-amount').value = transaction.amount;
         document.getElementById('transaction-type').value = transaction.type;
         document.getElementById('transaction-description').value = transaction.description || '';
@@ -2046,7 +2053,7 @@ async function showCategoryTransactionDetails(categoryId, categoryType, category
                 
                 transactionItem.innerHTML = `
                     <div class="transaction-info">
-                        <div class="transaction-date">${transaction.date}</div>
+                        <div class="transaction-date">${formatISODateToYYYYMMDD(transaction.date)}</div>
                         <div class="transaction-description">${transaction.description || 'なし'}</div>
                         <div class="transaction-details">
                             <span class="payment-location">${transaction.payment_location || ''}</span>
@@ -2134,7 +2141,7 @@ async function showWalletTransactionDetails(walletId, walletName, year, month) {
                 
                 transactionItem.innerHTML = `
                     <div class="transaction-info">
-                        <div class="transaction-date">${transaction.date}</div>
+                        <div class="transaction-date">${formatISODateToYYYYMMDD(transaction.date)}</div>
                         <div class="transaction-description">${transaction.description || 'なし'}</div>
                         <div class="transaction-details">
                             <span class="category">${categoryName}</span>
