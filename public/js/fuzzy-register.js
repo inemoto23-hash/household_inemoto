@@ -237,13 +237,13 @@ function populateMainForm(result) {
                 console.log('クレジットカードを設定:', result.credit_category_id);
             }
         } else if (result.type === 'transfer') {
-            // 振替（IDのみの形式）
+            // 振替（数値IDをそのまま使用）
             if (result.transfer_from_wallet_id) {
-                document.getElementById('transfer-from-wallet').value = result.transfer_from_wallet_id;
+                document.getElementById('transfer-from').value = result.transfer_from_wallet_id;
                 console.log('振替元を設定:', result.transfer_from_wallet_id);
             }
             if (result.transfer_to_wallet_id) {
-                document.getElementById('transfer-to-wallet').value = result.transfer_to_wallet_id;
+                document.getElementById('transfer-to').value = result.transfer_to_wallet_id;
                 console.log('振替先を設定:', result.transfer_to_wallet_id);
             }
         } else if (result.type === 'charge') {
