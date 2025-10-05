@@ -749,7 +749,8 @@ function toggleExpenseCategory() {
             creditCategoryGroup.classList.add('hidden');
             if (itemsGroup) itemsGroup.classList.add('hidden');
             // 収入の場合は出費カテゴリをクリア
-            document.getElementById('expense-category').value = '';
+            const expenseCategory = document.getElementById('expense-category');
+            if (expenseCategory) expenseCategory.value = '';
         }
         transferFromGroup.classList.add('hidden');
         transferToGroup.classList.add('hidden');
@@ -759,12 +760,19 @@ function toggleExpenseCategory() {
         budgetToGroup.classList.add('hidden');
 
         // 振替・チャージ・予算振替で使用するフィールドをクリア
-        document.getElementById('transfer-from-wallet').value = '';
-        document.getElementById('transfer-to-wallet').value = '';
-        document.getElementById('charge-from-source').value = '';
-        document.getElementById('charge-to-wallet').value = '';
-        document.getElementById('budget-from-category').value = '';
-        document.getElementById('budget-to-category').value = '';
+        const transferFromWallet = document.getElementById('transfer-from-wallet');
+        const transferToWallet = document.getElementById('transfer-to-wallet');
+        const chargeFromSource = document.getElementById('charge-from-source');
+        const chargeToWallet = document.getElementById('charge-to-wallet');
+        const budgetFromCategory = document.getElementById('budget-from-category');
+        const budgetToCategory = document.getElementById('budget-to-category');
+
+        if (transferFromWallet) transferFromWallet.value = '';
+        if (transferToWallet) transferToWallet.value = '';
+        if (chargeFromSource) chargeFromSource.value = '';
+        if (chargeToWallet) chargeToWallet.value = '';
+        if (budgetFromCategory) budgetFromCategory.value = '';
+        if (budgetToCategory) budgetToCategory.value = '';
 
         // 支出の場合のみ支払い方法に応じた表示切り替え
         if (type === 'expense') {
@@ -785,13 +793,21 @@ function toggleExpenseCategory() {
         if (itemsGroup) itemsGroup.classList.add('hidden');
 
         // 出費・収入・チャージ・予算振替で使用するフィールドをクリア
-        document.getElementById('expense-category').value = '';
-        document.getElementById('wallet-category').value = '';
-        document.getElementById('credit-category').value = '';
-        document.getElementById('charge-from-source').value = '';
-        document.getElementById('charge-to-wallet').value = '';
-        document.getElementById('budget-from-category').value = '';
-        document.getElementById('budget-to-category').value = '';
+        const expenseCat = document.getElementById('expense-category');
+        const walletCat = document.getElementById('wallet-category');
+        const creditCat = document.getElementById('credit-category');
+        const chargeFromSrc = document.getElementById('charge-from-source');
+        const chargeToWlt = document.getElementById('charge-to-wallet');
+        const budgetFromCat = document.getElementById('budget-from-category');
+        const budgetToCat = document.getElementById('budget-to-category');
+
+        if (expenseCat) expenseCat.value = '';
+        if (walletCat) walletCat.value = '';
+        if (creditCat) creditCat.value = '';
+        if (chargeFromSrc) chargeFromSrc.value = '';
+        if (chargeToWlt) chargeToWlt.value = '';
+        if (budgetFromCat) budgetFromCat.value = '';
+        if (budgetToCat) budgetToCat.value = '';
     } else if (type === 'charge') {
         // チャージの場合
         expenseCategoryGroup.style.display = 'none';
@@ -807,13 +823,21 @@ function toggleExpenseCategory() {
         if (itemsGroup) itemsGroup.classList.add('hidden');
 
         // 出費・収入・振替・予算振替で使用するフィールドをクリア
-        document.getElementById('expense-category').value = '';
-        document.getElementById('wallet-category').value = '';
-        document.getElementById('credit-category').value = '';
-        document.getElementById('transfer-from-wallet').value = '';
-        document.getElementById('transfer-to-wallet').value = '';
-        document.getElementById('budget-from-category').value = '';
-        document.getElementById('budget-to-category').value = '';
+        const expenseCat2 = document.getElementById('expense-category');
+        const walletCat2 = document.getElementById('wallet-category');
+        const creditCat2 = document.getElementById('credit-category');
+        const transferFromWlt = document.getElementById('transfer-from-wallet');
+        const transferToWlt = document.getElementById('transfer-to-wallet');
+        const budgetFromCat2 = document.getElementById('budget-from-category');
+        const budgetToCat2 = document.getElementById('budget-to-category');
+
+        if (expenseCat2) expenseCat2.value = '';
+        if (walletCat2) walletCat2.value = '';
+        if (creditCat2) creditCat2.value = '';
+        if (transferFromWlt) transferFromWlt.value = '';
+        if (transferToWlt) transferToWlt.value = '';
+        if (budgetFromCat2) budgetFromCat2.value = '';
+        if (budgetToCat2) budgetToCat2.value = '';
 
         // チャージでデフォルトで楽天カードを選択
         const chargeFromSourceSelect = document.getElementById('charge-from-source');
@@ -841,13 +865,21 @@ function toggleExpenseCategory() {
         if (itemsGroup) itemsGroup.classList.add('hidden');
 
         // 出費・収入・振替・チャージで使用するフィールドをクリア
-        document.getElementById('expense-category').value = '';
-        document.getElementById('wallet-category').value = '';
-        document.getElementById('credit-category').value = '';
-        document.getElementById('transfer-from-wallet').value = '';
-        document.getElementById('transfer-to-wallet').value = '';
-        document.getElementById('charge-from-source').value = '';
-        document.getElementById('charge-to-wallet').value = '';
+        const expenseCat3 = document.getElementById('expense-category');
+        const walletCat3 = document.getElementById('wallet-category');
+        const creditCat3 = document.getElementById('credit-category');
+        const transferFromWlt2 = document.getElementById('transfer-from-wallet');
+        const transferToWlt2 = document.getElementById('transfer-to-wallet');
+        const chargeFromSrc2 = document.getElementById('charge-from-source');
+        const chargeToWlt2 = document.getElementById('charge-to-wallet');
+
+        if (expenseCat3) expenseCat3.value = '';
+        if (walletCat3) walletCat3.value = '';
+        if (creditCat3) creditCat3.value = '';
+        if (transferFromWlt2) transferFromWlt2.value = '';
+        if (transferToWlt2) transferToWlt2.value = '';
+        if (chargeFromSrc2) chargeFromSrc2.value = '';
+        if (chargeToWlt2) chargeToWlt2.value = '';
     }
 }
 
