@@ -17,6 +17,7 @@
                 <button id="summary-tab" class="nav-btn">予算確認</button>
                 <button id="balance-tab" class="nav-btn">残高管理</button>
                 <button id="budget-tab" class="nav-btn">予算設定</button>
+                <button id="category-tab" class="nav-btn">カテゴリ管理</button>
                 <button id="stats-tab" class="nav-btn">統計・グラフ</button>
             </nav>
         </header>
@@ -343,6 +344,44 @@
                 </div>
             </div>
 
+            <!-- カテゴリ管理ビュー -->
+            <div id="category-view" class="view">
+                <div class="category-container">
+                    <h2>カテゴリ管理</h2>
+
+                    <!-- 出費カテゴリ管理 -->
+                    <div class="category-section">
+                        <h3>出費カテゴリ</h3>
+                        <div id="expense-category-list" class="category-list"></div>
+                        <div class="add-category-form">
+                            <input type="text" id="new-expense-category" placeholder="新しい出費カテゴリ名">
+                            <button id="add-expense-category" class="btn-primary">追加</button>
+                        </div>
+                    </div>
+
+                    <!-- 財布カテゴリ管理 -->
+                    <div class="category-section">
+                        <h3>財布カテゴリ</h3>
+                        <div id="wallet-category-list" class="category-list"></div>
+                        <div class="add-category-form">
+                            <input type="text" id="new-wallet-category" placeholder="新しい財布カテゴリ名">
+                            <input type="number" id="new-wallet-balance" placeholder="初期残高" value="0" step="0.01">
+                            <button id="add-wallet-category" class="btn-primary">追加</button>
+                        </div>
+                    </div>
+
+                    <!-- クレジットカードカテゴリ管理 -->
+                    <div class="category-section">
+                        <h3>クレジットカードカテゴリ</h3>
+                        <div id="credit-category-list" class="category-list"></div>
+                        <div class="add-category-form">
+                            <input type="text" id="new-credit-category" placeholder="新しいクレジットカード名">
+                            <button id="add-credit-category" class="btn-primary">追加</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 統計・グラフビュー -->
             <div id="stats-view" class="view">
                 <div class="stats-container">
@@ -447,5 +486,6 @@
     <script src="js/default-settings.js"></script>
     <script src="js/app.js"></script>
     <script src="js/fuzzy-register.js"></script>
+    <script src="js/category-management.js"></script>
 </body>
 </html>

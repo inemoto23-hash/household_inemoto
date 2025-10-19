@@ -293,28 +293,75 @@ app.post('/api/expense-categories', async (req, res) => {
     }
 });
 
+// 財布カテゴリ追加API
+app.post('/api/wallet-categories', async (req, res) => {
+    try {
+        const { name, balance } = req.body;
+        if (!name) {
+            return res.status(400).json({ error: 'カテゴリ名が必要です' });
+        }
+
+        const initialBalance = balance || 0;
+        const result = await db.run(
+            `INSERT INTO wallet_categories (name, balance) VALUES (${db.type === 'postgresql' ? '$1, $2' : '?, ?'})`,
+            [name, initialBalance]
+        );
+        res.json({ id: result.lastID, name, balance: initialBalance, message: '財布カテゴリを追加しました' });
+    } catch (error) {
+        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' || error.message?.includes('unique')) {
+            res.status(400).json({ error: '同じ名前のカテゴリが既に存在します' });
+        } else {
+            console.error('財布カテゴリ追加エラー:', error);
+            res.status(500).json({ error: '財布カテゴリの追加に失敗しました' });
+        }
+    }
+});
+
+// クレジットカードカテゴリ追加API
+app.post('/api/credit-categories', async (req, res) => {
+    try {
+        const { name } = req.body;
+        if (!name) {
+            return res.status(400).json({ error: 'カテゴリ名が必要です' });
+        }
+
+        const result = await db.run(
+            `INSERT INTO credit_categories (name) VALUES (${db.type === 'postgresql' ? '$1' : '?'})`,
+            [name]
+        );
+        res.json({ id: result.lastID, name, message: 'クレジットカードカテゴリを追加しました' });
+    } catch (error) {
+        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' || error.message?.includes('unique')) {
+            res.status(400).json({ error: '同じ名前のカテゴリが既に存在します' });
+        } else {
+            console.error('クレジットカードカテゴリ追加エラー:', error);
+            res.status(500).json({ error: 'クレジットカードカテゴリの追加に失敗しました' });
+        }
+    }
+});
+
 // 出費カテゴリ削除API
 app.delete('/api/expense-categories/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         // そのカテゴリが使用されている取引がないかチェック
         const usageCheck = await db.get(`SELECT COUNT(*) as count FROM transactions WHERE expense_category_id = ${db.type === 'postgresql' ? '$1' : '?'}`, [id]);
         if (usageCheck.count > 0) {
             return res.status(400).json({ error: 'このカテゴリは取引で使用されているため削除できません' });
         }
-        
+
         // 予算設定もチェック
         const budgetCheck = await db.get(`SELECT COUNT(*) as count FROM monthly_budgets WHERE expense_category_id = ${db.type === 'postgresql' ? '$1' : '?'}`, [id]);
         if (budgetCheck.count > 0) {
             return res.status(400).json({ error: 'このカテゴリは予算設定で使用されているため削除できません' });
         }
-        
+
         const result = await db.run(`DELETE FROM expense_categories WHERE id = ${db.type === 'postgresql' ? '$1' : '?'}`, [id]);
         if (result.changes === 0) {
             return res.status(404).json({ error: 'カテゴリが見つかりません' });
         }
-        
+
         res.json({ message: '出費カテゴリを削除しました' });
     } catch (error) {
         console.error('出費カテゴリ削除エラー:', error);

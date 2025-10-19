@@ -1926,3 +1926,90 @@ main {
         opacity: 0.7;
     }
 }
+
+/* カテゴリ管理画面 */
+.category-container {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.category-section {
+    background: #f9f9f9;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+}
+
+.category-section h3 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #3498db;
+}
+
+.category-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    min-height: 50px;
+}
+
+.category-item {
+    background: white;
+    padding: 0.75rem 1rem;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s;
+}
+
+.category-item:hover {
+    border-color: #3498db;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.category-item-name {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.category-item-balance {
+    font-size: 0.9rem;
+    color: #27ae60;
+    margin-left: 0.5rem;
+}
+
+.add-category-form {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.add-category-form input[type="text"],
+.add-category-form input[type="number"] {
+    flex: 1;
+    min-width: 200px;
+    padding: 0.75rem;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.add-category-form input[type="number"] {
+    min-width: 150px;
+    flex: 0.5;
+}
+
+.add-category-form input:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+.add-category-form button {
+    padding: 0.75rem 1.5rem;
+    white-space: nowrap;
+}

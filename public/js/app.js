@@ -146,6 +146,7 @@ const views = {
     fuzzy: document.getElementById('fuzzy-view'),
     summary: document.getElementById('summary-view'),
     balance: document.getElementById('balance-view'),
+    category: document.getElementById('category-view'),
     stats: document.getElementById('stats-view')
 };
 
@@ -430,10 +431,13 @@ function showView(viewName) {
             const today = getCurrentLocalTime();
             const currentYear = today.getFullYear();
             const currentMonth = today.getMonth() + 1;
-            
+
             document.getElementById('budget-year').value = currentYear;
             document.getElementById('budget-month').value = currentMonth;
             loadBudget();
+        } else if (viewName === 'category') {
+            // カテゴリ管理ビュー：カテゴリ一覧を読み込み
+            loadCategoryManagement();
         }
     }
 }
