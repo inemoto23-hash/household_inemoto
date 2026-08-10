@@ -12,3 +12,4 @@ import './functions/master';
 import './functions/entries';
 import './functions/stock';
 import './functions/budgets';
+import './functions/periods';
