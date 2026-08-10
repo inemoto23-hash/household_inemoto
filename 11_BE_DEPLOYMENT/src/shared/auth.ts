@@ -5,8 +5,9 @@
  * 変えても壊れない。SWA の Linked Backend でも直接呼び出しでも同じコードで動く。
  */
 import { HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { createRemoteJWKSet, jwtVerify, JWTPayload } from 'jose';
+import { createRemoteJWKSet, jwtVerify, decodeJwt, JWTPayload } from 'jose';
 import { getPool, sql } from '../db/pool';
+import { num } from '../db/convert';
 import { fail } from './http';
 
 export interface AuthedUser {
@@ -15,6 +16,10 @@ export interface AuthedUser {
   email: string;
   displayName: string;
   role: string;
+}
+
+export function isOwner(user: AuthedUser): boolean {
+  return user.role === 'owner';
 }
 
 export interface AuthContext {
@@ -35,27 +40,77 @@ function getJwks() {
   return jwks;
 }
 
-/** users テーブルへ引き当てる。未登録なら null（＝世帯メンバーではない）。 */
-async function resolveUser(oid: string): Promise<AuthedUser | null> {
-  const pool = await getPool();
-  const result = await pool
-    .request()
-    .input('oid', sql.NVarChar(200), oid)
-    .query(
-      `SELECT TOP 1 id, household_id, email, display_name, role
-         FROM dbo.users
-        WHERE provider_user_id = @oid AND is_active = 1`
-    );
+const USER_COLUMNS = `id, household_id, email, display_name, role`;
 
-  const row = result.recordset[0];
-  if (!row) return null;
+function toAuthedUser(row: Record<string, any>): AuthedUser {
   return {
-    id: row.id,
-    householdId: row.household_id,
+    // BIGINT は文字列で返るため必ず number へ正規化する
+    id: num(row.id),
+    householdId: num(row.household_id),
     email: row.email,
     displayName: row.display_name,
     role: row.role,
   };
+}
+
+/**
+ * users テーブルへ引き当てる。
+ *
+ * 1. Entra の oid で照合する（2回目以降のサインイン）
+ * 2. 見つからなければ、招待済み（provider_user_id が未設定）の行をメールアドレスで探し、
+ *    見つかれば oid を書き込んで確定する（初回サインイン）
+ *
+ * メールアドレスは Entra が検証したクレームのみを使う。リクエスト本文の値は決して使わない。
+ */
+async function resolveUser(oid: string, emails: string[]): Promise<AuthedUser | null> {
+  const pool = await getPool();
+
+  const byOid = await pool
+    .request()
+    .input('oid', sql.NVarChar(200), oid)
+    .query(`SELECT TOP 1 ${USER_COLUMNS} FROM dbo.users WHERE provider_user_id = @oid AND is_active = 1`);
+
+  if (byOid.recordset[0]) return toAuthedUser(byOid.recordset[0]);
+
+  // 初回サインイン: 招待済みの行をメールアドレスで引き当てて紐付ける
+  for (const email of emails) {
+    const bound = await pool
+      .request()
+      .input('oid', sql.NVarChar(200), oid)
+      .input('email', sql.NVarChar(256), email)
+      .query(
+        `UPDATE dbo.users
+            SET provider_user_id = @oid
+          OUTPUT ${USER_COLUMNS.split(', ').map((c) => `INSERTED.${c}`).join(', ')}
+          WHERE email = @email
+            AND provider_user_id IS NULL
+            AND is_active = 1`
+      );
+
+    if (bound.recordset[0]) return toAuthedUser(bound.recordset[0]);
+  }
+
+  return null;
+}
+
+/** トークンから、照合に使えるメールアドレスの候補を取り出す */
+function emailCandidates(claims: JWTPayload): string[] {
+  const raw = [
+    claims.email,
+    claims.preferred_username,
+    (claims as Record<string, unknown>).upn,
+  ];
+  const seen = new Set<string>();
+  for (const value of raw) {
+    if (typeof value === 'string' && value.includes('@')) {
+      seen.add(value.toLowerCase());
+      // ゲストの UPN は inemoto23_gmail.com#EXT#@tenant.onmicrosoft.com の形になる。
+      // 元のメールアドレスへ復元して照合できるようにする
+      const ext = value.match(/^(.+?)#EXT#@/);
+      if (ext) seen.add(ext[1].replace(/_(?=[^_]*$)/, '@').toLowerCase());
+    }
+  }
+  return [...seen];
 }
 
 export type AuthedHandler = (
@@ -87,13 +142,44 @@ export function withAuth(handler: AuthedHandler) {
     let claims: JWTPayload;
     try {
       const verified = await jwtVerify(bearer, getJwks(), {
-        issuer: `https://login.microsoftonline.com/${tenantId}/v2.0`,
+        // アプリ登録を v2 に切り替えても、切り替え前に発行された v1 トークンが
+        // ブラウザのキャッシュに残るため、当面は両方の発行者を受け付ける
+        issuer: [
+          `https://login.microsoftonline.com/${tenantId}/v2.0`,
+          `https://sts.windows.net/${tenantId}/`,
+        ],
         audience: [audience, `api://${audience}`],
       });
       claims = verified.payload;
     } catch (err) {
-      ctx.warn(`token verification failed: ${err instanceof Error ? err.message : err}`);
-      return fail(401, 'INVALID_TOKEN', 'サインインの有効期限が切れています。再度サインインしてください');
+      // 何が食い違ったのかを返す。トークンは呼び出し元が既に持っているものなので
+      // ここで iss / aud を見せても新たな情報漏洩にはならず、切り分けが一気に楽になる
+      let actual: Record<string, unknown> | undefined;
+      try {
+        const raw = decodeJwt(bearer);
+        actual = { iss: raw.iss, aud: raw.aud, ver: (raw as Record<string, unknown>).ver };
+      } catch {
+        actual = { note: 'トークンを JWT として解析できませんでした' };
+      }
+      const reason = err instanceof Error ? err.message : String(err);
+      ctx.warn(`token verification failed: ${reason} / actual=${JSON.stringify(actual)}`);
+
+      return fail(
+        401,
+        'INVALID_TOKEN',
+        'サインインし直してください',
+        {
+          reason,
+          actual,
+          expected: {
+            iss: [
+              `https://login.microsoftonline.com/${tenantId}/v2.0`,
+              `https://sts.windows.net/${tenantId}/`,
+            ],
+            aud: [audience, `api://${audience}`],
+          },
+        }
+      );
     }
 
     const oid = (claims.oid ?? claims.sub) as string | undefined;
@@ -101,9 +187,14 @@ export function withAuth(handler: AuthedHandler) {
       return fail(401, 'INVALID_TOKEN', 'トークンに利用者識別子が含まれていません');
     }
 
-    const user = await resolveUser(oid);
+    const emails = emailCandidates(claims);
+    const user = await resolveUser(oid, emails);
     if (!user) {
-      return fail(403, 'NOT_A_MEMBER', 'この世帯のメンバーとして登録されていません');
+      return fail(403, 'NOT_A_MEMBER', 'この世帯のメンバーとして登録されていません', {
+        oid,
+        triedEmails: emails,
+        hint: 'オーナーに、この メールアドレス でメンバー追加してもらってください',
+      });
     }
 
     return handler(req, ctx, { user, claims });

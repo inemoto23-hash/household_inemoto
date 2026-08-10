@@ -4,3 +4,10 @@
  * 新しいエンドポイントを追加したら、必ずこのファイルに import を足すこと。
  */
 import './functions/health';
+import './functions/bootstrap';
+import './functions/members';
+import './functions/avatar';
+import './functions/accounts';
+import './functions/master';
+import './functions/entries';
+import './functions/budgets';

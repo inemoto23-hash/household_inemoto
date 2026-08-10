@@ -1,0 +1,118 @@
+# システム構成（L1: 鳥瞰）
+
+KakeiFlow — 世帯向け家計簿。カレンダーを基点に、予算・財布・プールを管理する。
+
+> このドキュメントは**全体像とコンポーネント間の関係のみ**を扱う。
+> ファイル単位の責務は L2（`01_開発ドキュメント/`）、テーブル定義は L3（`02_DB情報/`）を正とする。
+
+---
+
+## コンポーネント
+
+| コンポーネント | 役割 | 実体 |
+|---|---|---|
+| **FE** | 画面。カレンダー・入力・予算・分析 | `10_SITE_DEPLOYMENT/`（React + TS + Vite） |
+| **BE** | API。認証・業務ロジック・DB アクセス | `11_BE_DEPLOYMENT/`（Azure Functions / Node 22 / TS v4） |
+| **DB** | 全データ | Azure SQL Database `KakeiFlow_SQL` |
+| **定義** | スキーマ・初期データ | `20_DATABASE/`（マイグレーション + シード） |
+
+FE と BE は**別リポジトリ・別デプロイ**。FE は `KakeiFlow_GH` にあり SWA が自動デプロイする。
+BE は本リポジトリ配下から `func azure functionapp publish` で単独デプロイする。
+
+---
+
+## Azure 上の構成
+
+```mermaid
+graph TB
+    U["利用者（PC / スマホ）"]
+    G["Google（Gmail 認証）"]
+    E["Entra ID テナント"]
+    S["Static Web Apps (Free)<br/>静的配信のみ"]
+    F["Function App (Flex Consumption)<br/>システム割当マネージドID"]
+    D["Azure SQL Database (Basic)"]
+    K["Key Vault"]
+
+    U -->|HTTPS| S
+    U -.->|MSAL.js でサインイン| E
+    E -.->|gmail.com を委譲| G
+    U -->|Bearer トークンで直接呼び出し| F
+    F -->|マネージドID| D
+    F -->|マネージドID| K
+```
+
+**接続文字列とAPIキーをどこにも保持しない。** リソース間の接続はすべて
+Entra ID + マネージドID で行う。ストレージは共有キーアクセス自体を禁止している。
+
+SWA の Linked Backend は使わない（Managed Functions がマネージドIDに対応しないため）。
+FE は Function App の URL を直接呼び、CORS で許可する。この判断の経緯は
+[再構築計画書 §2.2](../91_UPDATE/01/20260810_rebuild_plan.md) を参照。
+
+---
+
+## 認証
+
+| 対象 | 方式 |
+|---|---|
+| 利用者 → サイト | Entra ID（Gmail は Google フェデレーション経由）。MSAL.js がトークンを取得 |
+| FE → BE | `Authorization: Bearer`。BE は JWKS で JWT を検証する（EasyAuth に依存しない） |
+| BE → DB / Key Vault | マネージドID |
+
+世帯メンバーは `users` テーブルへの登録が必須。Entra 認証を通っても未登録なら `403` を返す。
+招待は「オーナーが画面から登録 → 本人の初回サインインでメール照合により自動紐付け」という流れ。
+
+---
+
+## データモデルの中核
+
+**台帳を4つに分離する。** これが現行アプリの予算組み換えバグと種別変更バグの根治策になっている。
+
+| 台帳 | 性質 | 役割 |
+|---|---|---|
+| `entries` | 事実の記録 | 財布残高・クレジット債務・予算消化の source |
+| `budget_allocations` | **月次・追記専用** | 予算額の source。UPDATE せず `SUM` で導出 |
+| `pool_movements` | **累積・追記専用** | プール残高の source。月をまたいで持ち越す |
+| `entry_stock` | 一時領域 | 確定するまで残高・予算に影響しない |
+
+お金の性質も明確に分ける。**予算とプールは架空、財布とクレジットは実際。**
+残高はカラムで持たず取引から導出する（`vw_account_balances` / `vw_pool_balances`）。
+
+金額はすべて `BIGINT` の円単位整数。テーブル定義は L3（`02_DB情報/`）と
+`20_DATABASE/migrations/` を正とする。
+
+---
+
+## 画面構成
+
+記帳の動線と設定の動線を分ける。**よく使う3画面は上部のセグメント**に常駐させ、
+**設定系は最下部**へ置く。上部のボタンを押し間違えても記帳から離脱しない。
+
+| 位置 | 画面 | 役割 |
+|---|---|---|
+| 上部 | `/calendar/:ym` | 記帳の中心。日別の一覧と、その場での追加・編集 |
+| 上部 | `/budget/:ym` | 配分・組み換え・プールの出し入れ・履歴 |
+| 上部 | `/manage` | 口座 / カテゴリ / プール のマスタ管理 |
+| 下部 | `/settings/profile` | 表示名・アイコン・優先表示する財布 |
+| 下部 | `/settings/members` | メンバーの招待と権限（オーナーのみ） |
+| 下部 | `/status` | 疎通確認 |
+
+マスタは**削除せずアーカイブする**。取引が参照しているため、消すと過去の月の集計が変わってしまう。
+
+---
+
+## 外部連携
+
+| 連携先 | 用途 | 状態 |
+|---|---|---|
+| Microsoft Entra ID | 認証 | 稼働中 |
+| Google (OAuth) | Gmail でのサインイン | Entra のフェデレーション設定待ち |
+| Azure OpenAI | あいまい入力の解析 | Phase 3 で導入 |
+| Azure Maps | 位置情報からの場所推定 | Phase 3 で導入 |
+
+---
+
+## 関連ドキュメント
+
+- [再構築計画書](../91_UPDATE/01/20260810_rebuild_plan.md) — 全体計画とフェーズ定義
+- [処理フロー](system_flow.md) — 主要な処理の流れ
+- [ユーザー手動作業](10_計画/19_ユーザー作業.md) — Azure / Entra 側で人が行う作業
