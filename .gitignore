@@ -3,3 +3,17 @@ node_modules/
 database/*.db
 *.log
 .DS_Store
+
+# Windows の予約デバイス名。シェルのリダイレクト誤りで生成された残骸で git が扱えない
+nul
+
+# ローカル固有の設定
+.claude/settings.local.json
+
+# 10_SITE_DEPLOYMENT は KakeiFlow_GH の独立クローン（SWA が直接デプロイする）
+# 外側リポジトリからは追跡しない
+/10_SITE_DEPLOYMENT/
+
+# バックエンドのビルド生成物とローカル設定
+/11_BE_DEPLOYMENT/dist/
+/11_BE_DEPLOYMENT/local.settings.json

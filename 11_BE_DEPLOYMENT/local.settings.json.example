@@ -1,0 +1,17 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+
+    "SQL_SERVER": "inemoto-db-server.database.windows.net",
+    "SQL_DATABASE": "KakeiFlow_SQL",
+
+    "TENANT_ID": "1e2f5217-4ca1-4762-a0b6-a9f16f29d4c6",
+    "API_CLIENT_ID": "4d0734fe-141a-4a80-b481-0624eee80d51"
+  },
+  "Host": {
+    "CORS": "http://localhost:5173",
+    "CORSCredentials": false
+  }
+}
