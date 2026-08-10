@@ -212,8 +212,10 @@ app.http('budgetsSetInitial', {
 
       await transaction.begin();
 
-      // 基本配分は「現在の initial 合計との差分」を追記する。
-      // 台帳は追記専用なので、過去の行は書き換えずに調整分だけを足す。
+      // 配分の設定は上書きとして扱う。
+      // 組み換えやプールへの拠出も含めた「その月の配分合計」が
+      // 指定された金額そのものになるよう、差分を1行だけ追記する。
+      // 台帳は追記専用なので過去の行は書き換えず、経緯は履歴に残る。
       for (const item of parsed.data.items) {
         const current = await new sql.Request(transaction)
           .input('hid', sql.BigInt, user.householdId)
@@ -223,7 +225,7 @@ app.http('budgetsSetInitial', {
             `SELECT ISNULL(SUM(amount), 0) AS total
                FROM dbo.budget_allocations
               WHERE household_id = @hid AND year_month = @ym
-                AND category_id = @cat AND reason = 'initial'`
+                AND category_id = @cat`
           );
 
         const delta = item.amount - num(current.recordset[0].total);
