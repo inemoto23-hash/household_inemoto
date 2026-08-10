@@ -63,7 +63,7 @@ function mapEntry(row: Record<string, any>) {
  * 参照先がすべて同じ世帯のものか確かめる。
  * 世帯をまたいだ ID を送り込まれても弾けるようにする。
  */
-async function assertReferencesInHousehold(
+export async function assertReferencesInHousehold(
   entry: NormalizedEntry,
   householdId: number
 ): Promise<string | null> {

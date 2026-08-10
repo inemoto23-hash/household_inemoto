@@ -10,4 +10,5 @@ import './functions/avatar';
 import './functions/accounts';
 import './functions/master';
 import './functions/entries';
+import './functions/stock';
 import './functions/budgets';

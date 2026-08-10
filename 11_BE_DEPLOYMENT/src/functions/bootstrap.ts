@@ -93,9 +93,13 @@ app.http('bootstrap', {
          ORDER BY p.order_index, p.name;
 
         SELECT account_id FROM dbo.user_account_priorities WHERE user_id = ${user.id};
+
+        SELECT COUNT(*) AS pending FROM dbo.entry_stock
+         WHERE household_id = @hid AND status = N'pending';
       `);
 
-      const [households, users, accounts, categories, pools, priorities] = result.recordsets as any[];
+      const [households, users, accounts, categories, pools, priorities, stock] =
+        result.recordsets as any[];
       const priorityIds = new Set(priorities.map((r: any) => num(r.account_id)));
 
       return ok({
@@ -133,6 +137,8 @@ app.http('bootstrap', {
           orderIndex: num(row.order_index),
           balance: num(row.balance),
         })),
+        /** 未確定のクイック登録の件数。画面上部の呼び出しに使う */
+        pendingStock: num(stock[0]?.pending),
       });
     } catch (err) {
       return internalError(err, (m) => ctx.error(m));
