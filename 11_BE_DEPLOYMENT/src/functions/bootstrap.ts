@@ -11,7 +11,14 @@ import { ok, internalError } from '../shared/http';
 import { withAuth } from '../shared/auth';
 
 function mapCategory(row: Record<string, any>) {
+  // 今月の配分と消化。選択欄に残りを出すために使う（categories 単体取得では入らない）
+  const allocated = row.allocated === undefined ? null : num(row.allocated);
+  const spent = row.spent === undefined ? null : num(row.spent);
+
   return {
+    allocated,
+    spent,
+    remaining: allocated === null || spent === null ? null : allocated - spent,
     id: num(row.id),
     name: row.name,
     kind: row.kind,
@@ -62,7 +69,16 @@ app.http('bootstrap', {
       const pool = await getPool();
 
       // 1往復にまとめる。件数はいずれも数十件なので分割する意味がない
+      //
+      // 「今月」は日本時間で判定する。サーバーは UTC で動くため、
+      // 夜間に月をまたぐと1日ずれた月を今月として扱ってしまう
       const result = await pool.request().input('hid', sql.BigInt, user.householdId).query(`
+        DECLARE @today DATE = CAST(SYSUTCDATETIME() AT TIME ZONE 'UTC'
+                                   AT TIME ZONE 'Tokyo Standard Time' AS DATE);
+        DECLARE @ym CHAR(7) = CONVERT(CHAR(7), @today, 126);
+        DECLARE @from DATE = DATEFROMPARTS(YEAR(@today), MONTH(@today), 1);
+        DECLARE @to   DATE = DATEADD(month, 1, @from);
+
         SELECT id, name FROM dbo.households WHERE id = @hid;
 
         SELECT id, display_name, email, role, color, icon,
@@ -79,11 +95,22 @@ app.http('bootstrap', {
          WHERE a.household_id = @hid AND a.is_archived = 0
          ORDER BY a.order_index, a.name;
 
-        SELECT id, name, kind, carry_over_policy, carry_over_pool_id, parent_id,
-               icon, color, order_index, is_archived, default_amount
-          FROM dbo.budget_categories
-         WHERE household_id = @hid AND is_archived = 0
-         ORDER BY kind DESC, order_index, name;
+        SELECT c.id, c.name, c.kind, c.carry_over_policy, c.carry_over_pool_id, c.parent_id,
+               c.icon, c.color, c.order_index, c.is_archived, c.default_amount,
+               ISNULL(al.allocated, 0) AS allocated,
+               ISNULL(sp.spent, 0)     AS spent
+          FROM dbo.budget_categories c
+          OUTER APPLY (SELECT SUM(amount) AS allocated FROM dbo.budget_allocations ba
+                        WHERE ba.category_id = c.id AND ba.year_month = @ym) al
+          OUTER APPLY (SELECT SUM(CASE WHEN e.kind = 'expense' THEN e.amount
+                                       WHEN e.kind = 'refund'  THEN -e.amount
+                                       WHEN e.kind = 'income'  THEN e.amount
+                                       ELSE 0 END) AS spent
+                         FROM dbo.entries e
+                        WHERE e.budget_category_id = c.id AND e.is_deleted = 0
+                          AND e.entry_date >= @from AND e.entry_date < @to) sp
+         WHERE c.household_id = @hid AND c.is_archived = 0
+         ORDER BY c.kind DESC, c.order_index, c.name;
 
         SELECT p.id, p.name, p.purpose, p.target_amount, p.icon, p.color, p.order_index,
                b.balance

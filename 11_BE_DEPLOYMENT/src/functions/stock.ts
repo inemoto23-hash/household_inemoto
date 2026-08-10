@@ -125,6 +125,69 @@ async function guessFromPlace(
 }
 
 // ---------------------------------------------------------------
+// 現在地の近くで過去に使った店名の候補
+//
+// 外部の地図サービスは使わない。自分たちが過去に入力した店名を返すだけなので、
+// 追加のリソースも料金も発生せず、出てくる名前も普段使っている呼び方になる。
+// ---------------------------------------------------------------
+app.http('placesNearby', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'places/nearby',
+  handler: withAuth(async (req, ctx, { user }) => {
+    const lat = Number(req.query.get('lat'));
+    const lng = Number(req.query.get('lng'));
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return fail(400, 'VALIDATION_ERROR', '緯度経度を指定してください');
+    }
+    // 範囲を広げたいとき用。既定は店舗を特定できる程度
+    const spread = Math.min(Math.max(Number(req.query.get('spread')) || 1, 1), 6) * NEARBY_DEGREES;
+
+    try {
+      const pool = await getPool();
+      const r = await pool
+        .request()
+        .input('hid', sql.BigInt, user.householdId)
+        .input('lat', sql.Decimal(9, 6), lat)
+        .input('lng', sql.Decimal(9, 6), lng)
+        .input('d', sql.Decimal(9, 6), spread)
+        .query(
+          `SELECT TOP 8
+                  COALESCE(e.merchant, e.place_name) AS name,
+                  MAX(e.budget_category_id) AS category_id,
+                  MAX(e.account_id)         AS account_id,
+                  COUNT(*)                  AS n,
+                  MAX(e.entry_date)         AS last_used
+             FROM dbo.entries e
+            WHERE e.household_id = @hid
+              AND e.is_deleted = 0
+              AND COALESCE(e.merchant, e.place_name) IS NOT NULL
+              AND e.lat IS NOT NULL AND e.lng IS NOT NULL
+              AND e.lat BETWEEN @lat - @d AND @lat + @d
+              AND e.lng BETWEEN @lng - @d AND @lng + @d
+            GROUP BY COALESCE(e.merchant, e.place_name)
+            ORDER BY COUNT(*) DESC, MAX(e.entry_date) DESC`
+        );
+
+      return ok(
+        r.recordset.map((row) => ({
+          name: row.name,
+          categoryId: numOrNull(row.category_id),
+          accountId: numOrNull(row.account_id),
+          count: num(row.n),
+          lastUsed:
+            row.last_used instanceof Date
+              ? row.last_used.toISOString().slice(0, 10)
+              : String(row.last_used).slice(0, 10),
+        }))
+      );
+    } catch (err) {
+      return internalError(err, (m) => ctx.error(m));
+    }
+  }),
+});
+
+// ---------------------------------------------------------------
 // 未確定の一覧
 // ---------------------------------------------------------------
 app.http('stockList', {

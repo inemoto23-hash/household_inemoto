@@ -211,16 +211,21 @@ app.http('entriesCreate', {
         .input('pool', sql.BigInt, entry.poolId)
         .input('merchant', sql.NVarChar(120), entry.merchant)
         .input('memo', sql.NVarChar(500), entry.memo)
+        // 位置は取れたら添える。次に同じ場所で記録するときの手がかりになる
+        .input('lat', sql.Decimal(9, 6), parsed.data.lat ?? null)
+        .input('lng', sql.Decimal(9, 6), parsed.data.lng ?? null)
+        .input('acc_m', sql.Int, parsed.data.locationAccuracy ?? null)
+        .input('place', sql.NVarChar(120), parsed.data.placeName ?? null)
         .input('by', sql.BigInt, user.id)
         .query(
           `INSERT INTO dbo.entries
              (household_id, client_id, entry_date, kind, amount,
               budget_category_id, account_id, counter_account_id, pool_id,
-              merchant, memo, created_by)
+              merchant, memo, lat, lng, location_accuracy, place_name, created_by)
            OUTPUT INSERTED.id
            VALUES (@hid, @cid, @date, @kind, @amount,
                    @cat, @acc, @counter, @pool,
-                   @merchant, @memo, @by)`
+                   @merchant, @memo, @lat, @lng, @acc_m, @place, @by)`
         );
 
       const created = await pool

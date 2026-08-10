@@ -31,6 +31,11 @@ export const entryInputSchema = z.object({
   merchant: z.string().trim().max(120).nullable().optional(),
   memo: z.string().trim().max(500).nullable().optional(),
   clientId: z.string().uuid().nullable().optional(),
+  // 位置情報。取れなくても登録は成立するので、すべて任意
+  lat: z.coerce.number().min(-90).max(90).nullable().optional(),
+  lng: z.coerce.number().min(-180).max(180).nullable().optional(),
+  locationAccuracy: z.coerce.number().int().min(0).nullable().optional(),
+  placeName: z.string().trim().max(120).nullable().optional(),
 });
 
 export type EntryInput = z.infer<typeof entryInputSchema>;
