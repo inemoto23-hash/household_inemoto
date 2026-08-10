@@ -281,6 +281,8 @@ const categoryBase = {
   kind: z.enum(['expense', 'income']),
   carryOverPolicy: z.enum(CARRY_POLICIES).optional(),
   carryOverPoolId: z.coerce.number().int().positive().nullable().optional(),
+  /** 新しい月を開いたときに配分として入る額。月ごとの実配分は budget_allocations が正 */
+  defaultAmount: z.coerce.number().int().min(0).optional(),
   icon: z.string().trim().max(40).nullable().optional(),
   color: z.string().trim().max(20).nullable().optional(),
   isArchived: z.boolean().optional(),
@@ -337,14 +339,16 @@ app.http('categoryCreate', {
         .input('kind', sql.NVarChar(10), input.kind)
         .input('carry', sql.NVarChar(20), input.carryOverPolicy)
         .input('carry_pool', sql.BigInt, input.carryOverPoolId ?? null)
+        .input('default_amount', sql.BigInt, input.defaultAmount ?? 0)
         .input('icon', sql.NVarChar(40), input.icon ?? null)
         .input('color', sql.NVarChar(20), input.color ?? null)
         .input('idx', sql.Int, await nextOrderIndex('budget_categories', user.householdId))
         .query(
           `INSERT INTO dbo.budget_categories
-             (household_id, name, kind, carry_over_policy, carry_over_pool_id, icon, color, order_index)
+             (household_id, name, kind, carry_over_policy, carry_over_pool_id,
+              default_amount, icon, color, order_index)
            OUTPUT INSERTED.id
-           VALUES (@hid, @name, @kind, @carry, @carry_pool, @icon, @color, @idx)`
+           VALUES (@hid, @name, @kind, @carry, @carry_pool, @default_amount, @icon, @color, @idx)`
         );
 
       return ok({ id: num(result.recordset[0].id) }, 201);
@@ -404,6 +408,7 @@ app.http('categoryUpdate', {
       put('kind', 'kind', sql.NVarChar(10), parsed.data.kind);
       put('carry', 'carry_over_policy', sql.NVarChar(20), parsed.data.carryOverPolicy);
       put('carry_pool', 'carry_over_pool_id', sql.BigInt, clearPool ? null : input.carryOverPoolId);
+      put('default_amount', 'default_amount', sql.BigInt, parsed.data.defaultAmount);
       put('icon', 'icon', sql.NVarChar(40), parsed.data.icon);
       put('color', 'color', sql.NVarChar(20), parsed.data.color);
       put('archived', 'is_archived', sql.Bit, parsed.data.isArchived);

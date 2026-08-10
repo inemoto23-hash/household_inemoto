@@ -24,6 +24,8 @@ app.http('accountsList', {
   route: 'accounts',
   handler: withAuth(async (req, ctx, { user }) => {
     const includeArchived = req.query.get('includeArchived') === 'true';
+    // 並び順の編集画面から呼ぶときは、優先財布を先頭へ出す並びを外す
+    const byOrder = req.query.get('sort') === 'order';
     // 他メンバーの優先設定を編集する画面用。既定は自分の設定
     const forUserId = Number(req.query.get('forUserId') ?? user.id);
     if (!Number.isInteger(forUserId) || forUserId <= 0) {
@@ -59,7 +61,9 @@ app.http('accountsList', {
              ) u
             WHERE a.household_id = @hid
               ${includeArchived ? '' : 'AND a.is_archived = 0'}
-            ORDER BY is_priority DESC, a.order_index, a.name`
+            -- 管理画面は保存した並び順どおりに出す必要がある。
+            -- 優先財布を先頭へ出すのは選択欄のための並びなので、明示された時だけにする
+            ORDER BY ${byOrder ? '' : 'is_priority DESC,'} a.order_index, a.name`
         );
 
       return ok(

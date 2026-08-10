@@ -33,16 +33,40 @@ async function assertPeriodOpen(householdId: number, yearMonth: string): Promise
   return status === 'closed' ? 'この月は締め済みのため、予算を変更できません' : null;
 }
 
-/** 期間が無ければ作る。月初に予算を触った時点で自然に作られる */
-async function ensurePeriod(householdId: number, yearMonth: string): Promise<void> {
+/**
+ * 期間が無ければ作り、あわせて既定予算を配分として入れる。
+ *
+ * 新しい月を初めて開いたときに一度だけ走る。既定額が 0 のカテゴリは行を作らない。
+ * 期間の有無で判定するため、あとから既定額を変えても過去の月には遡らない。
+ */
+async function ensurePeriod(householdId: number, yearMonth: string, userId?: number): Promise<void> {
   const pool = await getPool();
-  await pool
+  const created = await pool
     .request()
     .input('hid', sql.BigInt, householdId)
     .input('ym', sql.Char(7), yearMonth)
     .query(
       `IF NOT EXISTS (SELECT 1 FROM dbo.budget_periods WHERE household_id = @hid AND year_month = @ym)
-         INSERT INTO dbo.budget_periods (household_id, year_month) VALUES (@hid, @ym)`
+       BEGIN
+         INSERT INTO dbo.budget_periods (household_id, year_month) VALUES (@hid, @ym);
+         SELECT 1 AS created;
+       END
+       ELSE SELECT 0 AS created`
+    );
+
+  if (num(created.recordset[0]?.created) !== 1) return;
+
+  await pool
+    .request()
+    .input('hid', sql.BigInt, householdId)
+    .input('ym', sql.Char(7), yearMonth)
+    .input('by', sql.BigInt, userId ?? null)
+    .query(
+      `INSERT INTO dbo.budget_allocations
+         (household_id, year_month, category_id, amount, reason, note, created_by)
+       SELECT @hid, @ym, c.id, c.default_amount, 'initial', N'既定の予算から', @by
+         FROM dbo.budget_categories c
+        WHERE c.household_id = @hid AND c.is_archived = 0 AND c.default_amount <> 0`
     );
 }
 
@@ -70,6 +94,10 @@ app.http('budgetsGet', {
     if (!range) return fail(400, 'VALIDATION_ERROR', '年月は YYYY-MM 形式で指定してください');
 
     try {
+      // 初めて開いた月には、設定に入れてある既定の予算を配分として入れる。
+      // 月が変わるたびに全カテゴリを入力し直させないための初期化。
+      await ensurePeriod(user.householdId, ym, user.id);
+
       const pool = await getPool();
       const result = await pool
         .request()
@@ -79,6 +107,7 @@ app.http('budgetsGet', {
         .input('to', sql.Date, range.toExclusive)
         .query(`
           SELECT c.id, c.name, c.kind, c.color, c.icon, c.order_index, c.carry_over_policy,
+                 c.default_amount,
                  ISNULL(al.allocated, 0) AS allocated,
                  ISNULL(sp.spent, 0)     AS spent,
                  ISNULL(co.carried, 0)   AS carried_over
@@ -128,6 +157,7 @@ app.http('budgetsGet', {
           icon: row.icon,
           orderIndex: num(row.order_index),
           carryOverPolicy: row.carry_over_policy,
+          defaultAmount: num(row.default_amount),
           allocated,
           /** expense は消化額、income は受取額 */
           spent,
@@ -202,7 +232,7 @@ app.http('budgetsSetInitial', {
     const transaction = new sql.Transaction(pool);
 
     try {
-      await ensurePeriod(user.householdId, ym);
+      await ensurePeriod(user.householdId, ym, user.id);
 
       for (const item of parsed.data.items) {
         if (!(await categoryInHousehold(item.categoryId, user.householdId))) {
@@ -296,7 +326,7 @@ app.http('budgetsTransfer', {
       // 「足りないから動かせない」では、足りない月こそ組み換えできないことになる。
       // マイナスになることは画面側の変更前後プレビューで示す。
 
-      await ensurePeriod(user.householdId, ym);
+      await ensurePeriod(user.householdId, ym, user.id);
       await insertAllocationPair({
         householdId: user.householdId,
         yearMonth: ym,
@@ -491,7 +521,7 @@ app.http('poolContribute', {
         // 組み換えと同じく、残額不足でも止めない（マイナス配分を許容する）
       }
 
-      await ensurePeriod(user.householdId, input.yearMonth);
+      await ensurePeriod(user.householdId, input.yearMonth, user.id);
       await movePool({
         poolId,
         householdId: user.householdId,
@@ -552,7 +582,7 @@ app.http('poolDraw', {
         return fail(400, 'VALIDATION_ERROR', '指定されたカテゴリが見つかりません');
       }
 
-      await ensurePeriod(user.householdId, input.yearMonth);
+      await ensurePeriod(user.householdId, input.yearMonth, user.id);
       await movePool({
         poolId,
         householdId: user.householdId,

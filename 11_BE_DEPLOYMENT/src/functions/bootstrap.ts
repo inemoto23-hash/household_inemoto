@@ -17,6 +17,8 @@ function mapCategory(row: Record<string, any>) {
     kind: row.kind,
     carryOverPolicy: row.carry_over_policy,
     carryOverPoolId: numOrNull(row.carry_over_pool_id),
+    /** 新しい月を開いたときに配分として入る額 */
+    defaultAmount: num(row.default_amount),
     parentId: numOrNull(row.parent_id),
     icon: row.icon,
     color: row.color,
@@ -38,7 +40,7 @@ app.http('categoriesList', {
         .input('hid', sql.BigInt, user.householdId)
         .query(
           `SELECT id, name, kind, carry_over_policy, carry_over_pool_id, parent_id,
-                  icon, color, order_index, is_archived
+                  icon, color, order_index, is_archived, default_amount
              FROM dbo.budget_categories
             WHERE household_id = @hid
               ${includeArchived ? '' : 'AND is_archived = 0'}
@@ -78,7 +80,7 @@ app.http('bootstrap', {
          ORDER BY a.order_index, a.name;
 
         SELECT id, name, kind, carry_over_policy, carry_over_pool_id, parent_id,
-               icon, color, order_index, is_archived
+               icon, color, order_index, is_archived, default_amount
           FROM dbo.budget_categories
          WHERE household_id = @hid AND is_archived = 0
          ORDER BY kind DESC, order_index, name;
