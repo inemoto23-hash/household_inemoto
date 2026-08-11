@@ -102,10 +102,16 @@ export function fitView(
 
 // ---------------------------------------------------------------
 
-/** ピンの書式。座標は「経度 緯度」で、間は空白 */
+/**
+ * ピンの書式。座標は「経度 緯度」で、間は空白。
+ *
+ * ラベルは ASCII だけにすること。Azure Maps は非 ASCII の文字を解釈できず、
+ * 「家」を渡すと %E5%AE%B6 とそのまま描かれる。番号なら安全。
+ * label が空ならラベル無しのピンにする。
+ */
 function pinsParam(pins: MapPin[]): string {
-  const style = "default|coE05C4F|lcFFFFFF|ls13|sc1.1";
-  const points = pins.map((p) => `'${p.label}'${p.lng} ${p.lat}`);
+  const style = 'default|coE05C4F|lcFFFFFF|ls13|sc1.1';
+  const points = pins.map((p) => (p.label ? `'${p.label}'${p.lng} ${p.lat}` : `${p.lng} ${p.lat}`));
   return `${style}||${points.join('|')}`;
 }
 

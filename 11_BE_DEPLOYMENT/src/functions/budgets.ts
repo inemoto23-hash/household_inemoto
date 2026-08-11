@@ -34,40 +34,40 @@ async function assertPeriodOpen(householdId: number, yearMonth: string): Promise
 }
 
 /**
- * 期間が無ければ作り、あわせて既定予算を配分として入れる。
+ * 期間の行が無ければ作る。**配分は入れない。**
  *
- * 新しい月を初めて開いたときに一度だけ走る。既定額が 0 のカテゴリは行を作らない。
- * 期間の有無で判定するため、あとから既定額を変えても過去の月には遡らない。
+ * 翌月の予算は「月を締めたとき」に決まる（periods.ts の seedDefaults）。
+ * 開いただけで既定額が入ると、締める前から翌月が確定したように見えてしまい、
+ * 締めで繰越を足したときに二重になる。
  */
-async function ensurePeriod(householdId: number, yearMonth: string, userId?: number): Promise<void> {
+async function ensurePeriod(householdId: number, yearMonth: string): Promise<void> {
   const pool = await getPool();
-  const created = await pool
+  await pool
     .request()
     .input('hid', sql.BigInt, householdId)
     .input('ym', sql.Char(7), yearMonth)
     .query(
       `IF NOT EXISTS (SELECT 1 FROM dbo.budget_periods WHERE household_id = @hid AND year_month = @ym)
-       BEGIN
-         INSERT INTO dbo.budget_periods (household_id, year_month) VALUES (@hid, @ym);
-         SELECT 1 AS created;
-       END
-       ELSE SELECT 0 AS created`
+         INSERT INTO dbo.budget_periods (household_id, year_month) VALUES (@hid, @ym)`
     );
+}
 
-  if (num(created.recordset[0]?.created) !== 1) return;
+/**
+ * 配分台帳の読み分け。
+ *
+ * 基準額（母数）はその月の計画で、残りを直しても動かさない。
+ * 調整は月内の増減で、組み換えやプールの出し入れもここに入る。
+ *
+ *   残り = 基準額 + 調整 − 消化
+ */
+const BASELINE_REASONS = `'initial', 'carry_over', 'default'`;
 
-  await pool
-    .request()
-    .input('hid', sql.BigInt, householdId)
-    .input('ym', sql.Char(7), yearMonth)
-    .input('by', sql.BigInt, userId ?? null)
-    .query(
-      `INSERT INTO dbo.budget_allocations
-         (household_id, year_month, category_id, amount, reason, note, created_by)
-       SELECT @hid, @ym, c.id, c.default_amount, 'initial', N'既定の予算から', @by
-         FROM dbo.budget_categories c
-        WHERE c.household_id = @hid AND c.is_archived = 0 AND c.default_amount <> 0`
-    );
+/** 'YYYY-MM' の前月 */
+function prevMonth(ym: string): string {
+  const [y, m] = ym.split('-').map(Number);
+  const py = m === 1 ? y - 1 : y;
+  const pm = m === 1 ? 12 : m - 1;
+  return `${py}-${String(pm).padStart(2, '0')}`;
 }
 
 /** カテゴリが同じ世帯のものか */
@@ -94,25 +94,30 @@ app.http('budgetsGet', {
     if (!range) return fail(400, 'VALIDATION_ERROR', '年月は YYYY-MM 形式で指定してください');
 
     try {
-      // 初めて開いた月には、設定に入れてある既定の予算を配分として入れる。
-      // 月が変わるたびに全カテゴリを入力し直させないための初期化。
-      await ensurePeriod(user.householdId, ym, user.id);
+      // 期間の行だけ作る。配分は月を締めたときに決まる
+      await ensurePeriod(user.householdId, ym);
 
       const pool = await getPool();
       const result = await pool
         .request()
         .input('hid', sql.BigInt, user.householdId)
         .input('ym', sql.Char(7), ym)
+        .input('prev', sql.Char(7), prevMonth(ym))
         .input('from', sql.Date, range.from)
         .input('to', sql.Date, range.toExclusive)
         .query(`
           SELECT c.id, c.name, c.kind, c.color, c.icon, c.order_index, c.carry_over_policy,
                  c.default_amount,
                  ISNULL(al.allocated, 0) AS allocated,
+                 ISNULL(al.baseline, 0)  AS baseline,
                  ISNULL(sp.spent, 0)     AS spent,
                  ISNULL(co.carried, 0)   AS carried_over
             FROM dbo.budget_categories c
-            OUTER APPLY (SELECT SUM(amount) AS allocated FROM dbo.budget_allocations ba
+            -- 基準額（母数）と調整を1回の走査で分けて数える
+            OUTER APPLY (SELECT SUM(amount) AS allocated,
+                                SUM(CASE WHEN ba.reason IN (${BASELINE_REASONS})
+                                         THEN amount ELSE 0 END) AS baseline
+                           FROM dbo.budget_allocations ba
                           WHERE ba.category_id = c.id AND ba.year_month = @ym) al
             OUTER APPLY (SELECT SUM(amount) AS carried FROM dbo.budget_allocations ba
                           WHERE ba.category_id = c.id AND ba.year_month = @ym
@@ -141,13 +146,21 @@ app.http('budgetsGet', {
            WHERE p.household_id = @hid AND p.is_archived = 0
            ORDER BY p.order_index, p.name;
 
-          SELECT status FROM dbo.budget_periods WHERE household_id = @hid AND year_month = @ym;
+          SELECT p.status,
+                 (SELECT COUNT(*) FROM dbo.budget_allocations ba
+                   WHERE ba.household_id = @hid AND ba.year_month = @ym) AS alloc_rows
+            FROM dbo.budget_periods p
+           WHERE p.household_id = @hid AND p.year_month = @ym;
+
+          -- 未確定のとき「先月を締めてください」と案内するために要る
+          SELECT status FROM dbo.budget_periods WHERE household_id = @hid AND year_month = @prev;
         `);
 
-      const [categoryRows, poolRows, periodRows] = result.recordsets as any[];
+      const [categoryRows, poolRows, periodRows, prevRows] = result.recordsets as any[];
 
       const categories = categoryRows.map((row: any) => {
         const allocated = num(row.allocated);
+        const baseline = num(row.baseline);
         const spent = num(row.spent);
         return {
           id: num(row.id),
@@ -159,6 +172,10 @@ app.http('budgetsGet', {
           carryOverPolicy: row.carry_over_policy,
           defaultAmount: num(row.default_amount),
           allocated,
+          /** その月の母数。残りを直しても動かない */
+          baseline,
+          /** 月内の増減（残りの直接指定・組み換え・プールの出し入れ） */
+          adjusted: allocated - baseline,
           /** expense は消化額、income は受取額 */
           spent,
           remaining: allocated - spent,
@@ -171,6 +188,14 @@ app.http('budgetsGet', {
       return ok({
         yearMonth: ym,
         status: periodRows[0]?.status ?? 'active',
+        /**
+         * まだ配分が1行も無い月。
+         * 翌月は先月を締めたときに決まるため、締める前はこれが立つ。
+         */
+        pending: num(periodRows[0]?.alloc_rows) === 0,
+        /** 未確定のとき、先に締めるべき月が締まっているか */
+        previousMonth: prevMonth(ym),
+        previousClosed: prevRows[0]?.status === 'closed',
         categories,
         pools: poolRows.map((row: any) => ({
           id: num(row.id),
@@ -232,7 +257,7 @@ app.http('budgetsSetInitial', {
     const transaction = new sql.Transaction(pool);
 
     try {
-      await ensurePeriod(user.householdId, ym, user.id);
+      await ensurePeriod(user.householdId, ym);
 
       for (const item of parsed.data.items) {
         if (!(await categoryInHousehold(item.categoryId, user.householdId))) {
@@ -284,6 +309,115 @@ app.http('budgetsSetInitial', {
 });
 
 // ---------------------------------------------------------------
+// その月の残りを直接決める
+//
+// 予算ページはその月の残高をいじる場所であって、母数を決める場所ではない。
+// 「予算 20,000 / 残り 15,000」を「残り 10,000」に直したとき、
+// 予算は 20,000 のまま、差の -5,000 を調整として1行追記する。
+//
+// 母数（基準額）は reason が initial / carry_over / default の合計なので、
+// adjust を積んでも動かない。経緯は履歴に残る。
+// ---------------------------------------------------------------
+const remainingSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        categoryId: z.coerce.number().int().positive(),
+        /** 使いすぎの状態から直すこともあるため、負の値も受ける */
+        remaining: z.coerce.number().int(),
+      })
+    )
+    .max(200),
+});
+
+app.http('budgetsSetRemaining', {
+  methods: ['PUT'],
+  authLevel: 'anonymous',
+  route: 'budgets/{ym}/remaining',
+  handler: withAuth(async (req, ctx, { user }) => {
+    const ym = req.params.ym;
+    const range = monthRange(ym);
+    if (!yearMonthSchema.safeParse(ym).success || !range) {
+      return fail(400, 'VALIDATION_ERROR', '年月は YYYY-MM 形式で指定してください');
+    }
+
+    const parsed = remainingSchema.safeParse(await req.json().catch(() => null));
+    if (!parsed.success) {
+      return fail(400, 'VALIDATION_ERROR', '入力内容を確認してください', parsed.error.flatten());
+    }
+
+    const closed = await assertPeriodOpen(user.householdId, ym);
+    if (closed) return fail(409, 'PERIOD_CLOSED', closed);
+
+    for (const item of parsed.data.items) {
+      if (!(await categoryInHousehold(item.categoryId, user.householdId))) {
+        return fail(400, 'VALIDATION_ERROR', '指定されたカテゴリが見つかりません');
+      }
+    }
+
+    const pool = await getPool();
+    const transaction = new sql.Transaction(pool);
+
+    try {
+      await ensurePeriod(user.householdId, ym);
+      await transaction.begin();
+
+      let changed = 0;
+
+      for (const item of parsed.data.items) {
+        // 今の配分合計と消化額を同時に取り、残りの差分を出す
+        const current = await new sql.Request(transaction)
+          .input('hid', sql.BigInt, user.householdId)
+          .input('ym', sql.Char(7), ym)
+          .input('cat', sql.BigInt, item.categoryId)
+          .input('from', sql.Date, range.from)
+          .input('to', sql.Date, range.toExclusive)
+          .query(
+            `SELECT
+               (SELECT ISNULL(SUM(amount), 0) FROM dbo.budget_allocations
+                 WHERE household_id = @hid AND year_month = @ym AND category_id = @cat) AS allocated,
+               (SELECT ISNULL(SUM(CASE
+                                    WHEN e.kind = 'expense' THEN e.amount
+                                    WHEN e.kind = 'refund'  THEN -e.amount
+                                    WHEN e.kind = 'income'  THEN e.amount
+                                    ELSE 0 END), 0)
+                  FROM dbo.entries e
+                 WHERE e.budget_category_id = @cat AND e.is_deleted = 0
+                   AND e.entry_date >= @from AND e.entry_date < @to) AS spent`
+          );
+
+        const allocated = num(current.recordset[0].allocated);
+        const spent = num(current.recordset[0].spent);
+
+        // 残り = 配分 − 消化 なので、望む残りにするための配分は 消化 + 残り
+        const delta = spent + item.remaining - allocated;
+        if (delta === 0) continue;
+
+        await new sql.Request(transaction)
+          .input('hid', sql.BigInt, user.householdId)
+          .input('ym', sql.Char(7), ym)
+          .input('cat', sql.BigInt, item.categoryId)
+          .input('amount', sql.BigInt, delta)
+          .input('note', sql.NVarChar(200), `残りを ${item.remaining.toLocaleString('ja-JP')} 円に`)
+          .input('by', sql.BigInt, user.id)
+          .query(
+            `INSERT INTO dbo.budget_allocations
+               (household_id, year_month, category_id, amount, reason, note, created_by)
+             VALUES (@hid, @ym, @cat, @amount, 'adjust', @note, @by)`
+          );
+        changed += 1;
+      }
+
+      await transaction.commit();
+      return ok({ yearMonth: ym, updated: changed });
+    } catch (err) {
+      await transaction.rollback().catch(() => undefined);
+      return internalError(err, (m) => ctx.error(m));
+    }
+  }),
+});
+
+// ---------------------------------------------------------------
 // カテゴリ間の組み換え
 // ---------------------------------------------------------------
 const transferSchema = z.object({
@@ -326,7 +460,7 @@ app.http('budgetsTransfer', {
       // 「足りないから動かせない」では、足りない月こそ組み換えできないことになる。
       // マイナスになることは画面側の変更前後プレビューで示す。
 
-      await ensurePeriod(user.householdId, ym, user.id);
+      await ensurePeriod(user.householdId, ym);
       await insertAllocationPair({
         householdId: user.householdId,
         yearMonth: ym,
@@ -521,7 +655,7 @@ app.http('poolContribute', {
         // 組み換えと同じく、残額不足でも止めない（マイナス配分を許容する）
       }
 
-      await ensurePeriod(user.householdId, input.yearMonth, user.id);
+      await ensurePeriod(user.householdId, input.yearMonth);
       await movePool({
         poolId,
         householdId: user.householdId,
@@ -582,7 +716,7 @@ app.http('poolDraw', {
         return fail(400, 'VALIDATION_ERROR', '指定されたカテゴリが見つかりません');
       }
 
-      await ensurePeriod(user.householdId, input.yearMonth, user.id);
+      await ensurePeriod(user.householdId, input.yearMonth);
       await movePool({
         poolId,
         householdId: user.householdId,

@@ -184,24 +184,36 @@ app.http('homeMap', {
 
     const width = Number(req.query.get('w') ?? 640);
     const height = Number(req.query.get('h') ?? 400);
-    // 未保存の候補地点を確かめたい場合は座標を直接受け取る
-    const lat = Number(req.query.get('lat'));
-    const lng = Number(req.query.get('lng'));
 
     if (!Number.isFinite(width) || !Number.isFinite(height)) {
       return fail(400, 'VALIDATION_ERROR', '画像の大きさが不正です');
     }
 
+    // 未保存の候補地点を確かめたい場合は座標を直接受け取る。
+    //
+    // 有無の判定を Number() の結果だけで行ってはいけない。
+    // 指定が無いと get() は null を返し、Number(null) は NaN ではなく 0 になる。
+    // 0,0 は大西洋の真ん中なので、一面が青い海の地図が返ってしまう。
+    const latText = req.query.get('lat');
+    const lngText = req.query.get('lng');
+    const given =
+      latText !== null && lngText !== null
+        ? { lat: Number(latText), lng: Number(lngText) }
+        : null;
+
+    if (given && (!Number.isFinite(given.lat) || !Number.isFinite(given.lng))) {
+      return fail(400, 'VALIDATION_ERROR', '座標が不正です');
+    }
+
     try {
-      const point =
-        Number.isFinite(lat) && Number.isFinite(lng)
-          ? { lat, lng }
-          : await getHome(user.householdId);
+      const point = given ?? (await getHome(user.householdId));
 
       if (!point) return { status: 204 };
 
       const image = await fetchStaticMap({
-        pins: [{ lat: point.lat, lng: point.lng, label: '家' }],
+        // ラベルは付けない。Azure Maps は非 ASCII のピン文字を解釈できず、
+        // 「家」が %E5%AE%B6 とそのまま描かれる。1点だけなので番号も要らない
+        pins: [{ lat: point.lat, lng: point.lng, label: '' }],
         width,
         height,
         zoom: HOME_MAP_ZOOM,

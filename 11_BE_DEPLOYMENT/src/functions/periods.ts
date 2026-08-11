@@ -214,6 +214,27 @@ app.http('periodClose', {
                INSERT INTO dbo.budget_periods (household_id, year_month) VALUES (@hid, @ym)`
           );
 
+        // 翌月の予算はここで決まる。
+        //
+        // 予算ページを開いただけでは入らない。開いた時点で入れてしまうと、
+        // 締める前から翌月が確定したように見え、あとから繰越を足すと二重になる。
+        //
+        // すでに 'default' の行があれば入れない。締め直しても増えないようにする。
+        await new sql.Request(transaction)
+          .input('hid', sql.BigInt, user.householdId)
+          .input('ym', sql.Char(7), target)
+          .input('by', sql.BigInt, user.id)
+          .query(
+            `INSERT INTO dbo.budget_allocations
+               (household_id, year_month, category_id, amount, reason, note, created_by)
+             SELECT @hid, @ym, c.id, c.default_amount, 'default', N'設定の既定額から', @by
+               FROM dbo.budget_categories c
+              WHERE c.household_id = @hid AND c.is_archived = 0 AND c.default_amount <> 0
+                AND NOT EXISTS (SELECT 1 FROM dbo.budget_allocations ba
+                                 WHERE ba.household_id = @hid AND ba.year_month = @ym
+                                   AND ba.category_id = c.id AND ba.reason = 'default')`
+          );
+
         for (const line of moving) {
           if (line.action === 'carry') {
             // 翌月へ +remaining（full の場合はマイナスもありうる）
@@ -323,7 +344,10 @@ app.http('periodReopen', {
       await transaction.begin();
 
       try {
-        // 締めが作った行を取り消す。
+        // 締めが作った行を取り消す。翌月の繰越（carry_over）と既定額（default）。
+        //
+        // 利用者が手で入れた initial / adjust は残す。
+        // 理由で区別しているので、手入力が巻き添えにならない。
         //
         // 台帳は原則として追記専用だが、締めは「その時点の残額から機械的に導ける操作」であり、
         // 戻したあとに ±の対が履歴へ残ると、翌月の履歴が取り消しの記録だらけになって読めなくなる。
@@ -334,7 +358,8 @@ app.http('periodReopen', {
           .input('ym', sql.Char(7), target)
           .query(
             `DELETE FROM dbo.budget_allocations
-              WHERE household_id = @hid AND year_month = @ym AND reason = 'carry_over'`
+              WHERE household_id = @hid AND year_month = @ym
+                AND reason IN ('carry_over', 'default')`
           );
 
         // プールへ移した分は対の両側をまとめて消す。
