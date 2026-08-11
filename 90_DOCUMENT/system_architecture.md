@@ -16,7 +16,9 @@ KakeiFlow — 世帯向け家計簿。カレンダーを基点に、予算・財
 | **DB** | 全データ | Azure SQL Database `KakeiFlow_SQL` |
 | **定義** | スキーマ・初期データ | `20_DATABASE/`（マイグレーション + シード） |
 
-BE には HTTP のほかに**タイマー**がある。`reminderSweep` が5分ごとに予定の通知を送る。
+BE には HTTP のほかに**タイマー**が2本ある。
+`reminderSweep` が5分ごとに予定の通知を送り、`recurringSweep` が1日1回（JST 00:10）
+定期取引を記帳する。
 
 FE と BE は**別リポジトリ・別デプロイ**。FE は `KakeiFlow_GH` にあり SWA が自動デプロイする。
 BE は本リポジトリ配下から `func azure functionapp publish` で単独デプロイする。
@@ -76,6 +78,11 @@ FE は Function App の URL を直接呼び、CORS で許可する。この判�
 | `pool_movements` | **累積・追記専用** | プール残高の source。月をまたいで持ち越す |
 | `entry_stock` | 一時領域 | 確定するまで残高・予算に影響しない |
 
+台帳ではないが、`recurring_rules` が**取引の雛形と次回予定日**を持つ。
+事実の記録ではなく規則なので、追記専用ではなく更新される。
+未来の取引行は作らず、その日が来たものだけを `entries` へ実体化する
+（[処理フロー](system_flow.md#定期取引の予約と自動記帳)）。
+
 お金の性質も明確に分ける。**予算とプールは架空、財布とクレジットは実際。**
 残高はカラムで持たず取引から導出する（`vw_account_balances` / `vw_pool_balances`）。
 
@@ -96,7 +103,7 @@ FE は Function App の URL を直接呼び、CORS で許可する。この判�
 | 上部 | `/accounts` | **閲覧のみ。** 財布とクレジットの残高、口座別の明細 |
 | （カレンダーから） | `/stock` | クイック登録した未確定の記録を確定する |
 | 上部 | `/analytics/:ym` | 推移・カテゴリ別・場所別（支出マップ）・曜日別 |
-| 上部 | `/settings` | **編集。** 口座 / 予算 / プール の3タブ |
+| 上部 | `/settings` | **編集。** 口座 / 予算 / プール / 定期 の4タブ |
 | 下部 | `/settings/profile` | 表示名・アイコン・優先表示する財布 |
 | 下部 | `/settings/members` | メンバーの招待と権限（オーナーのみ） |
 | 下部 | `/status` | 疎通確認 |

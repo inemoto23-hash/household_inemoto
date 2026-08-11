@@ -16,3 +16,5 @@ import './functions/periods';
 import './functions/analytics';
 import './functions/schedules';
 import './functions/reminders';
+import './functions/recurring';
+import './functions/recurringSweep';
