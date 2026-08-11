@@ -90,6 +90,7 @@ app.http('bootstrap', {
          ORDER BY id;
 
         SELECT a.id, a.name, a.kind, a.owner_user_id, a.order_index, a.icon, a.color,
+               a.is_charge_source,
                b.balance
           FROM dbo.accounts a
           LEFT JOIN dbo.vw_account_balances b ON b.account_id = a.id
@@ -164,6 +165,8 @@ app.http('bootstrap', {
           icon: row.icon,
           color: row.color,
           balance: num(row.balance),
+          /** チャージのときの出どころ。記録画面が自動で選ぶ */
+          isChargeSource: !!row.is_charge_source,
           isPriority: priorityIds.has(num(row.id)),
         })),
         categories: categories.map(mapCategory),

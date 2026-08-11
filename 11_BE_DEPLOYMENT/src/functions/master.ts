@@ -97,6 +97,8 @@ const accountBase = {
   closingDay: z.coerce.number().int().min(1).max(31).nullable().optional(),
   paymentDay: z.coerce.number().int().min(1).max(31).nullable().optional(),
   paymentAccountId: z.coerce.number().int().positive().nullable().optional(),
+  /** チャージのときの出どころ。世帯にひとつだけ */
+  isChargeSource: z.boolean().optional(),
   isArchived: z.boolean().optional(),
 };
 
@@ -115,6 +117,25 @@ const accountUpdateSchema = z.object(accountBase).partial();
 function normalizeCreditFields<T extends Record<string, any>>(kind: string, input: T) {
   if (kind === 'credit') return input;
   return { ...input, closingDay: null, paymentDay: null, paymentAccountId: null };
+}
+
+/**
+ * チャージ元を付け替える。先に同じ世帯の他の口座から外す。
+ *
+ * 世帯にひとつという決まりは ux_accounts_charge_source が守っている。
+ * ここで外し忘れれば索引が必ず弾くので、黙って2つ立つことは起きない。
+ */
+async function clearOtherChargeSources(householdId: number, keepId?: number): Promise<void> {
+  const pool = await getPool();
+  await pool
+    .request()
+    .input('hid', sql.BigInt, householdId)
+    .input('keep', sql.BigInt, keepId ?? null)
+    .query(
+      `UPDATE dbo.accounts SET is_charge_source = 0
+        WHERE household_id = @hid AND is_charge_source = 1
+          AND (@keep IS NULL OR id <> @keep)`
+    );
 }
 
 /** 参照先（所有者・支払口座）が同じ世帯のものか確かめる */
@@ -163,6 +184,9 @@ app.http('accountCreate', {
       const refError = await validateAccountRefs(input, user.householdId);
       if (refError) return fail(400, 'VALIDATION_ERROR', refError);
 
+      // 立てる前に他から外す。索引が2つ目を拒むため、順序を守る必要がある
+      if (input.isChargeSource) await clearOtherChargeSources(user.householdId);
+
       const pool = await getPool();
       const result = await pool
         .request()
@@ -177,14 +201,16 @@ app.http('accountCreate', {
         .input('closing', sql.TinyInt, input.closingDay ?? null)
         .input('payday', sql.TinyInt, input.paymentDay ?? null)
         .input('pay_acc', sql.BigInt, input.paymentAccountId ?? null)
+        .input('charge_src', sql.Bit, input.isChargeSource ? 1 : 0)
         .input('idx', sql.Int, await nextOrderIndex('accounts', user.householdId))
         .query(
           `INSERT INTO dbo.accounts
              (household_id, name, kind, owner_user_id, opening_balance, opening_date,
-              icon, color, closing_day, payment_day, payment_account_id, order_index)
+              icon, color, closing_day, payment_day, payment_account_id,
+              is_charge_source, order_index)
            OUTPUT INSERTED.id
            VALUES (@hid, @name, @kind, @owner, @open_bal, @open_date,
-                   @icon, @color, @closing, @payday, @pay_acc, @idx)`
+                   @icon, @color, @closing, @payday, @pay_acc, @charge_src, @idx)`
         );
 
       return ok({ id: num(result.recordset[0].id) }, 201);
@@ -226,6 +252,9 @@ app.http('accountUpdate', {
       const refError = await validateAccountRefs(input, user.householdId, id);
       if (refError) return fail(400, 'VALIDATION_ERROR', refError);
 
+      // 立てる前に他から外す。索引が2つ目を拒むため、順序を守る必要がある
+      if (parsed.data.isChargeSource) await clearOtherChargeSources(user.householdId, id);
+
       // クレジット以外へ変えた場合は専用項目を明示的に消す。
       // 送られてこなかった項目は触らないが、種別が変わったときだけは別
       const clearCredit = kind !== 'credit';
@@ -249,6 +278,12 @@ app.http('accountUpdate', {
       put('closing', 'closing_day', sql.TinyInt, clearCredit ? null : input.closingDay);
       put('payday', 'payment_day', sql.TinyInt, clearCredit ? null : input.paymentDay);
       put('pay_acc', 'payment_account_id', sql.BigInt, clearCredit ? null : input.paymentAccountId);
+      put(
+        'charge_src',
+        'is_charge_source',
+        sql.Bit,
+        parsed.data.isChargeSource === undefined ? undefined : parsed.data.isChargeSource ? 1 : 0
+      );
 
       if (sets.length === 0) return ok({ id, changed: false });
 
