@@ -107,7 +107,7 @@ app.http('budgetsGet', {
         .input('to', sql.Date, range.toExclusive)
         .query(`
           SELECT c.id, c.name, c.kind, c.color, c.icon, c.order_index, c.carry_over_policy,
-                 c.default_amount,
+                 c.default_amount, c.exclude_from_totals,
                  ISNULL(al.allocated, 0) AS allocated,
                  ISNULL(al.baseline, 0)  AS baseline,
                  ISNULL(sp.spent, 0)     AS spent,
@@ -170,6 +170,8 @@ app.http('budgetsGet', {
           icon: row.icon,
           orderIndex: num(row.order_index),
           carryOverPolicy: row.carry_over_policy,
+          /** 合計に数えない。行そのものは出す */
+          excludeFromTotals: !!row.exclude_from_totals,
           defaultAmount: num(row.default_amount),
           allocated,
           /** その月の母数。残りを直しても動かない */
@@ -183,7 +185,11 @@ app.http('budgetsGet', {
         };
       });
 
-      const expense = categories.filter((c: any) => c.kind === 'expense');
+      // 合計だけは印の付いたカテゴリを除く。行そのものは今までどおり返す。
+      // 「その他」のような受け皿が混ざると、合計が実感と合わなくなる
+      const expense = categories.filter(
+        (c: any) => c.kind === 'expense' && !c.excludeFromTotals
+      );
 
       return ok({
         yearMonth: ym,
@@ -211,6 +217,9 @@ app.http('budgetsGet', {
         })),
         total: {
           allocated: expense.reduce((s: number, c: any) => s + c.allocated, 0),
+          /** 母数の合計。残りを直しても動かない数字として画面に出す */
+          baseline: expense.reduce((s: number, c: any) => s + c.baseline, 0),
+          adjusted: expense.reduce((s: number, c: any) => s + c.adjusted, 0),
           spent: expense.reduce((s: number, c: any) => s + c.spent, 0),
           remaining: expense.reduce((s: number, c: any) => s + c.remaining, 0),
         },

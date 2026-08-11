@@ -99,6 +99,8 @@ const accountBase = {
   paymentAccountId: z.coerce.number().int().positive().nullable().optional(),
   /** チャージのときの出どころ。世帯にひとつだけ */
   isChargeSource: z.boolean().optional(),
+  /** 合計に数えない。一覧には出るし、記録でも選べる */
+  excludeFromTotals: z.boolean().optional(),
   isArchived: z.boolean().optional(),
 };
 
@@ -202,15 +204,16 @@ app.http('accountCreate', {
         .input('payday', sql.TinyInt, input.paymentDay ?? null)
         .input('pay_acc', sql.BigInt, input.paymentAccountId ?? null)
         .input('charge_src', sql.Bit, input.isChargeSource ? 1 : 0)
+        .input('excl', sql.Bit, input.excludeFromTotals ? 1 : 0)
         .input('idx', sql.Int, await nextOrderIndex('accounts', user.householdId))
         .query(
           `INSERT INTO dbo.accounts
              (household_id, name, kind, owner_user_id, opening_balance, opening_date,
               icon, color, closing_day, payment_day, payment_account_id,
-              is_charge_source, order_index)
+              is_charge_source, exclude_from_totals, order_index)
            OUTPUT INSERTED.id
            VALUES (@hid, @name, @kind, @owner, @open_bal, @open_date,
-                   @icon, @color, @closing, @payday, @pay_acc, @charge_src, @idx)`
+                   @icon, @color, @closing, @payday, @pay_acc, @charge_src, @excl, @idx)`
         );
 
       return ok({ id: num(result.recordset[0].id) }, 201);
@@ -284,6 +287,12 @@ app.http('accountUpdate', {
         sql.Bit,
         parsed.data.isChargeSource === undefined ? undefined : parsed.data.isChargeSource ? 1 : 0
       );
+      put(
+        'excl',
+        'exclude_from_totals',
+        sql.Bit,
+        parsed.data.excludeFromTotals === undefined ? undefined : parsed.data.excludeFromTotals ? 1 : 0
+      );
 
       if (sets.length === 0) return ok({ id, changed: false });
 
@@ -316,10 +325,12 @@ const categoryBase = {
   kind: z.enum(['expense', 'income']),
   carryOverPolicy: z.enum(CARRY_POLICIES).optional(),
   carryOverPoolId: z.coerce.number().int().positive().nullable().optional(),
-  /** 新しい月を開いたときに配分として入る額。月ごとの実配分は budget_allocations が正 */
+  /** 月を締めたときに翌月の母数として入る額。月ごとの実配分は budget_allocations が正 */
   defaultAmount: z.coerce.number().int().min(0).optional(),
   icon: z.string().trim().max(40).nullable().optional(),
   color: z.string().trim().max(20).nullable().optional(),
+  /** 合計に数えない。一覧には出るし、記録でも選べる */
+  excludeFromTotals: z.boolean().optional(),
   isArchived: z.boolean().optional(),
 };
 
@@ -375,15 +386,16 @@ app.http('categoryCreate', {
         .input('carry', sql.NVarChar(20), input.carryOverPolicy)
         .input('carry_pool', sql.BigInt, input.carryOverPoolId ?? null)
         .input('default_amount', sql.BigInt, input.defaultAmount ?? 0)
+        .input('excl', sql.Bit, input.excludeFromTotals ? 1 : 0)
         .input('icon', sql.NVarChar(40), input.icon ?? null)
         .input('color', sql.NVarChar(20), input.color ?? null)
         .input('idx', sql.Int, await nextOrderIndex('budget_categories', user.householdId))
         .query(
           `INSERT INTO dbo.budget_categories
              (household_id, name, kind, carry_over_policy, carry_over_pool_id,
-              default_amount, icon, color, order_index)
+              default_amount, icon, color, exclude_from_totals, order_index)
            OUTPUT INSERTED.id
-           VALUES (@hid, @name, @kind, @carry, @carry_pool, @default_amount, @icon, @color, @idx)`
+           VALUES (@hid, @name, @kind, @carry, @carry_pool, @default_amount, @icon, @color, @excl, @idx)`
         );
 
       return ok({ id: num(result.recordset[0].id) }, 201);
@@ -444,6 +456,12 @@ app.http('categoryUpdate', {
       put('carry', 'carry_over_policy', sql.NVarChar(20), parsed.data.carryOverPolicy);
       put('carry_pool', 'carry_over_pool_id', sql.BigInt, clearPool ? null : input.carryOverPoolId);
       put('default_amount', 'default_amount', sql.BigInt, parsed.data.defaultAmount);
+      put(
+        'excl',
+        'exclude_from_totals',
+        sql.Bit,
+        parsed.data.excludeFromTotals === undefined ? undefined : parsed.data.excludeFromTotals ? 1 : 0
+      );
       put('icon', 'icon', sql.NVarChar(40), parsed.data.icon);
       put('color', 'color', sql.NVarChar(20), parsed.data.color);
       put('archived', 'is_archived', sql.Bit, parsed.data.isArchived);

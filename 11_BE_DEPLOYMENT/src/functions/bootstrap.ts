@@ -31,6 +31,8 @@ function mapCategory(row: Record<string, any>) {
     color: row.color,
     orderIndex: num(row.order_index),
     isArchived: row.is_archived,
+    /** 合計に数えない。内訳には出る */
+    excludeFromTotals: !!row.exclude_from_totals,
   };
 }
 
@@ -47,7 +49,7 @@ app.http('categoriesList', {
         .input('hid', sql.BigInt, user.householdId)
         .query(
           `SELECT id, name, kind, carry_over_policy, carry_over_pool_id, parent_id,
-                  icon, color, order_index, is_archived, default_amount
+                  icon, color, order_index, is_archived, default_amount, exclude_from_totals
              FROM dbo.budget_categories
             WHERE household_id = @hid
               ${includeArchived ? '' : 'AND is_archived = 0'}
@@ -90,7 +92,7 @@ app.http('bootstrap', {
          ORDER BY id;
 
         SELECT a.id, a.name, a.kind, a.owner_user_id, a.order_index, a.icon, a.color,
-               a.is_charge_source,
+               a.is_charge_source, a.exclude_from_totals,
                b.balance
           FROM dbo.accounts a
           LEFT JOIN dbo.vw_account_balances b ON b.account_id = a.id
@@ -98,7 +100,7 @@ app.http('bootstrap', {
          ORDER BY a.order_index, a.name;
 
         SELECT c.id, c.name, c.kind, c.carry_over_policy, c.carry_over_pool_id, c.parent_id,
-               c.icon, c.color, c.order_index, c.is_archived, c.default_amount,
+               c.icon, c.color, c.order_index, c.is_archived, c.default_amount, c.exclude_from_totals,
                ISNULL(al.allocated, 0) AS allocated,
                ISNULL(sp.spent, 0)     AS spent
           FROM dbo.budget_categories c
@@ -167,6 +169,7 @@ app.http('bootstrap', {
           balance: num(row.balance),
           /** チャージのときの出どころ。記録画面が自動で選ぶ */
           isChargeSource: !!row.is_charge_source,
+          excludeFromTotals: !!row.exclude_from_totals,
           isPriority: priorityIds.has(num(row.id)),
         })),
         categories: categories.map(mapCategory),

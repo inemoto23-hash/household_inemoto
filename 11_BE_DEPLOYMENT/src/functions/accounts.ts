@@ -43,7 +43,7 @@ app.http('accountsList', {
           `SELECT a.id, a.name, a.kind, a.owner_user_id, a.order_index, a.is_archived,
                   a.icon, a.color, b.balance,
                   a.opening_balance, a.opening_date,
-                  a.closing_day, a.payment_day, a.payment_account_id, a.is_charge_source,
+                  a.closing_day, a.payment_day, a.payment_account_id, a.is_charge_source, a.exclude_from_totals,
                   CAST(CASE WHEN p.id IS NULL THEN 0 ELSE 1 END AS BIT) AS is_priority,
                   u.last_used_at,
                   ISNULL(u.use_count, 0) AS recent_use_count
@@ -84,6 +84,8 @@ app.http('accountsList', {
           paymentAccountId: numOrNull(row.payment_account_id),
           /** チャージのときの出どころ。世帯にひとつだけ */
           isChargeSource: !!row.is_charge_source,
+          /** 合計に数えない。一覧には出るし、記録でも選べる */
+          excludeFromTotals: !!row.exclude_from_totals,
           // クレジットは残高がマイナス方向へ積み上がる。画面では利用額として見せる
           balance: num(row.balance),
           /** この利用者が優先表示に選んでいるか */
