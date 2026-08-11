@@ -14,6 +14,7 @@ import './functions/stock';
 import './functions/budgets';
 import './functions/periods';
 import './functions/analytics';
+import './functions/map';
 import './functions/schedules';
 import './functions/reminders';
 import './functions/recurring';
