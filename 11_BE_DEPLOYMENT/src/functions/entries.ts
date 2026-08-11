@@ -429,32 +429,69 @@ app.http('calendarMonth', {
               AND e.is_deleted = 0
               AND e.entry_date >= @from AND e.entry_date < @to
             GROUP BY e.entry_date
-            ORDER BY e.entry_date`
+            ORDER BY e.entry_date;
+
+           -- 予定のある日を印で出すために、日別の件数も一緒に返す
+           SELECT s.scheduled_on, COUNT(*) AS n
+             FROM dbo.schedules s
+            WHERE s.household_id = @hid
+              AND s.is_deleted = 0
+              AND s.scheduled_on >= @from AND s.scheduled_on < @to
+            GROUP BY s.scheduled_on`
         );
 
-      const days = result.recordset.map((row) => {
+      const [entryRows, scheduleRows] = result.recordsets as any[];
+
+      const scheduleCounts = new Map<string, number>();
+      for (const row of scheduleRows) {
+        const key =
+          row.scheduled_on instanceof Date
+            ? row.scheduled_on.toISOString().slice(0, 10)
+            : String(row.scheduled_on).slice(0, 10);
+        scheduleCounts.set(key, num(row.n));
+      }
+
+      const days = entryRows.map((row: Record<string, any>) => {
         const expense = num(row.expense);
         const refund = num(row.refund);
         const income = num(row.income);
-        return {
-          date: row.entry_date instanceof Date
+        const date =
+          row.entry_date instanceof Date
             ? row.entry_date.toISOString().slice(0, 10)
-            : String(row.entry_date).slice(0, 10),
+            : String(row.entry_date).slice(0, 10);
+        return {
+          date,
           // 返金は支出を戻すもの。収入には混ぜない
           expense: expense - refund,
           income,
           transferCount: num(row.transfer_count),
           entryCount: num(row.entry_count),
+          scheduleCount: scheduleCounts.get(date) ?? 0,
         };
       });
+
+      // 取引が1件も無いが予定だけある日も、印を出すために返す
+      const known = new Set(days.map((d: { date: string }) => d.date));
+      for (const [date, n] of scheduleCounts) {
+        if (known.has(date)) continue;
+        days.push({
+          date,
+          expense: 0,
+          income: 0,
+          transferCount: 0,
+          entryCount: 0,
+          scheduleCount: n,
+        });
+      }
+      days.sort((a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date));
 
       return ok({
         yearMonth: req.params.ym,
         days,
         total: {
-          expense: days.reduce((s, d) => s + d.expense, 0),
-          income: days.reduce((s, d) => s + d.income, 0),
-          entryCount: days.reduce((s, d) => s + d.entryCount, 0),
+          expense: days.reduce((s: number, d: { expense: number }) => s + d.expense, 0),
+          income: days.reduce((s: number, d: { income: number }) => s + d.income, 0),
+          entryCount: days.reduce((s: number, d: { entryCount: number }) => s + d.entryCount, 0),
         },
       });
     } catch (err) {

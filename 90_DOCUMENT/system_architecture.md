@@ -16,6 +16,8 @@ KakeiFlow — 世帯向け家計簿。カレンダーを基点に、予算・財
 | **DB** | 全データ | Azure SQL Database `KakeiFlow_SQL` |
 | **定義** | スキーマ・初期データ | `20_DATABASE/`（マイグレーション + シード） |
 
+BE には HTTP のほかに**タイマー**がある。`reminderSweep` が5分ごとに予定の通知を送る。
+
 FE と BE は**別リポジトリ・別デプロイ**。FE は `KakeiFlow_GH` にあり SWA が自動デプロイする。
 BE は本リポジトリ配下から `func azure functionapp publish` で単独デプロイする。
 
@@ -111,8 +113,12 @@ FE は Function App の URL を直接呼び、CORS で許可する。この判�
 |---|---|---|
 | Microsoft Entra ID | 認証 | 稼働中 |
 | Google (OAuth) | Gmail でのサインイン | Entra のフェデレーション設定待ち |
-| Azure OpenAI | あいまい入力の解析 | Phase 3 で導入 |
-| Azure Maps | 位置情報からの場所推定 | Phase 3 で導入 |
+| Azure Communication Services | 予定の通知メール | 稼働中。MI 認証 |
+| Azure OpenAI | あいまい入力の解析 | 未着手 |
+| Azure Maps | 位置情報からの場所推定 | **不採用**。日本の施設データが薄くローマ字のため撤去（[経緯](../91_UPDATE/21/20260811_updatefix_schedule.md)） |
+| Google Places | 同上の代替案 | 保留。API キーが要るため Key Vault + MI で読む構成になる |
+
+場所の推定は外部サービスを使わず、**過去に自分たちが入力した店名**から行っている。
 
 ---
 

@@ -13,3 +13,5 @@ import './functions/entries';
 import './functions/stock';
 import './functions/budgets';
 import './functions/periods';
+import './functions/schedules';
+import './functions/reminders';
