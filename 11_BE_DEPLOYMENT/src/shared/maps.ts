@@ -117,6 +117,8 @@ export async function fetchStaticMap(options: {
   pins: MapPin[];
   width: number;
   height: number;
+  /** 拡大率を決め打ちする。1地点だけのときは自動計算だと引きすぎる */
+  zoom?: number;
 }): Promise<Buffer> {
   const clientId = process.env.MAPS_CLIENT_ID;
   if (!clientId) throw new Error('MAPS_CLIENT_ID が設定されていません');
@@ -129,7 +131,7 @@ export async function fetchStaticMap(options: {
   const query = new URLSearchParams({
     'api-version': '2024-04-01',
     center: view.center,
-    zoom: String(view.zoom),
+    zoom: String(options.zoom ?? view.zoom),
     width: String(width),
     height: String(height),
     language: 'ja-JP',

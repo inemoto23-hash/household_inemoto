@@ -16,6 +16,7 @@ import { getPool, sql } from '../db/pool';
 import { num, numOrNull } from '../db/convert';
 import { ok, fail, internalError } from '../shared/http';
 import { withAuth } from '../shared/auth';
+import { stripIfAtHome } from '../shared/home';
 import { entryInputSchema, normalizeEntry } from '../domain/entry';
 import { assertReferencesInHousehold } from './entries';
 
@@ -252,10 +253,14 @@ app.http('stockCreate', {
         if (dup.recordset[0]) return ok(mapStock(dup.recordset[0]));
       }
 
+      // 自宅の範囲なら座標を捨てる。あわせて場所からの推測もしない。
+      // 自宅の近所で過去に使った店を候補に出しても当たらない
+      const { located } = await stripIfAtHome(user.householdId, input);
+
       // 位置が取れていれば、同じ場所での過去の記録から分類を推測する
       const guess =
-        input.lat != null && input.lng != null
-          ? await guessFromPlace(user.householdId, input.lat, input.lng)
+        located.lat != null && located.lng != null
+          ? await guessFromPlace(user.householdId, located.lat, located.lng)
           : null;
 
       const reason = guess
@@ -273,9 +278,9 @@ app.http('stockCreate', {
         .input('cat', sql.BigInt, guess?.categoryId ?? null)
         .input('acc', sql.BigInt, guess?.accountId ?? null)
         .input('reason', sql.NVarChar(200), reason)
-        .input('lat', sql.Decimal(9, 6), input.lat ?? null)
-        .input('lng', sql.Decimal(9, 6), input.lng ?? null)
-        .input('acc_m', sql.Int, input.locationAccuracy ?? null)
+        .input('lat', sql.Decimal(9, 6), located.lat)
+        .input('lng', sql.Decimal(9, 6), located.lng)
+        .input('acc_m', sql.Int, located.locationAccuracy)
         .input('place', sql.NVarChar(120), guess?.placeName ?? guess?.merchant ?? null)
         .input('by', sql.BigInt, user.id)
         .query(

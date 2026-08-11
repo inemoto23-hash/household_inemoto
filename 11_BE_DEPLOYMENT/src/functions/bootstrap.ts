@@ -79,7 +79,8 @@ app.http('bootstrap', {
         DECLARE @from DATE = DATEFROMPARTS(YEAR(@today), MONTH(@today), 1);
         DECLARE @to   DATE = DATEADD(month, 1, @from);
 
-        SELECT id, name FROM dbo.households WHERE id = @hid;
+        SELECT id, name, home_lat, home_lng, home_radius_m
+          FROM dbo.households WHERE id = @hid;
 
         SELECT id, display_name, email, role, color, icon,
                CAST(CASE WHEN avatar_data IS NULL THEN 0 ELSE 1 END AS BIT) AS has_avatar,
@@ -131,6 +132,18 @@ app.http('bootstrap', {
 
       return ok({
         household: households[0] ? { id: num(households[0].id), name: households[0].name } : null,
+        /**
+         * 自宅の位置。画面はこれを見て、自宅で記録しているかを判定する。
+         * 判定そのものは BE でも行うので、これは表示のためだけ。
+         */
+        home:
+          households[0] && households[0].home_lat !== null && households[0].home_lng !== null
+            ? {
+                lat: Number(households[0].home_lat),
+                lng: Number(households[0].home_lng),
+                radiusM: Number(households[0].home_radius_m),
+              }
+            : null,
         me: { id: user.id, displayName: user.displayName, role: user.role },
         members: users.map((row: any) => ({
           id: num(row.id),

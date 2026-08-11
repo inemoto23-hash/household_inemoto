@@ -11,6 +11,7 @@ import { getPool, sql } from '../db/pool';
 import { num, numOrNull } from '../db/convert';
 import { ok, fail, internalError } from '../shared/http';
 import { withAuth } from '../shared/auth';
+import { stripIfAtHome } from '../shared/home';
 import { entryInputSchema, normalizeEntry, monthRange, NormalizedEntry } from '../domain/entry';
 
 const SELECT_ENTRY = `
@@ -198,6 +199,10 @@ app.http('entriesCreate', {
         if (existing.recordset[0]) return ok(mapEntry(existing.recordset[0]), 200);
       }
 
+      // 自宅の範囲なら座標を捨てる。画面が送ってきても、ここで確実に落ちる。
+      // 自宅で付けたクレジット履歴が支出マップに並ぶのを防ぐ
+      const { located } = await stripIfAtHome(user.householdId, parsed.data);
+
       const inserted = await pool
         .request()
         .input('hid', sql.BigInt, user.householdId)
@@ -212,9 +217,9 @@ app.http('entriesCreate', {
         .input('merchant', sql.NVarChar(120), entry.merchant)
         .input('memo', sql.NVarChar(500), entry.memo)
         // 位置は取れたら添える。次に同じ場所で記録するときの手がかりになる
-        .input('lat', sql.Decimal(9, 6), parsed.data.lat ?? null)
-        .input('lng', sql.Decimal(9, 6), parsed.data.lng ?? null)
-        .input('acc_m', sql.Int, parsed.data.locationAccuracy ?? null)
+        .input('lat', sql.Decimal(9, 6), located.lat)
+        .input('lng', sql.Decimal(9, 6), located.lng)
+        .input('acc_m', sql.Int, located.locationAccuracy)
         .input('place', sql.NVarChar(120), parsed.data.placeName ?? null)
         .input('by', sql.BigInt, user.id)
         .query(
