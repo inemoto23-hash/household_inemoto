@@ -53,10 +53,24 @@ export interface NormalizedEntry {
   memo: string | null;
 }
 
+/** エラーがどの入力欄のものか。画面がその欄だけを赤くするために使う */
+export type EntryField =
+  | 'amount'
+  | 'entryDate'
+  | 'accountId'
+  | 'counterAccountId'
+  | 'budgetCategoryId'
+  | 'poolId';
+
 export interface NormalizeResult {
   ok: boolean;
   entry?: NormalizedEntry;
   error?: string;
+  /**
+   * どの欄が原因か。任意なので、文言だけ見る既存の呼び出し元はそのまま動く。
+   * 一括登録は行が多く「何行目の何が」まで返さないと直せないため、ここで機械可読にしておく。
+   */
+  field?: EntryField;
 }
 
 /**
@@ -74,10 +88,18 @@ export function normalizeEntry(input: EntryInput): NormalizeResult {
 
   if (input.kind === 'transfer') {
     if (!input.accountId || !input.counterAccountId) {
-      return { ok: false, error: '振替元と振替先の両方を選んでください' };
+      return {
+        ok: false,
+        error: '振替元と振替先の両方を選んでください',
+        field: input.accountId ? 'counterAccountId' : 'accountId',
+      };
     }
     if (input.accountId === input.counterAccountId) {
-      return { ok: false, error: '振替元と振替先に同じ財布は選べません' };
+      return {
+        ok: false,
+        error: '振替元と振替先に同じ財布は選べません',
+        field: 'counterAccountId',
+      };
     }
     return {
       ok: true,
@@ -94,12 +116,12 @@ export function normalizeEntry(input: EntryInput): NormalizeResult {
 
   // 実際のお金は必ず財布かクレジットから動く
   if (!input.accountId) {
-    return { ok: false, error: '支払い方法を選んでください' };
+    return { ok: false, error: '支払い方法を選んでください', field: 'accountId' };
   }
 
   if (input.kind === 'income') {
     if (!input.budgetCategoryId) {
-      return { ok: false, error: 'カテゴリを選んでください' };
+      return { ok: false, error: 'カテゴリを選んでください', field: 'budgetCategoryId' };
     }
     return {
       ok: true,
@@ -124,6 +146,7 @@ export function normalizeEntry(input: EntryInput): NormalizeResult {
       error: hasCategory
         ? 'カテゴリとプールは同時に選べません。どちらか一方にしてください'
         : 'カテゴリかプールのどちらかを選んでください',
+      field: 'budgetCategoryId',
     };
   }
 
@@ -137,6 +160,71 @@ export function normalizeEntry(input: EntryInput): NormalizeResult {
       poolId: hasPool ? input.poolId! : null,
     },
   };
+}
+
+// ---------------------------------------------------------------
+// 一括登録
+// ---------------------------------------------------------------
+
+/**
+ * 一括登録で扱う種別。振替は入れない。
+ *
+ * 振替は「移動元」と「移動先」の2口座が要るため、同じ列が行によって
+ * カテゴリになったり移動先になったりする。表として読めなくなるので、
+ * 振替は従来どおり1件ずつシートで記録する。
+ */
+export const BULK_ENTRY_KINDS = ['expense', 'income', 'refund'] as const;
+export type BulkEntryKind = (typeof BULK_ENTRY_KINDS)[number];
+
+/**
+ * 1回で受け付ける行数の上限。
+ *
+ * 多値 INSERT のパラメータ数（11項目 × 50行 = 550）が mssql の上限 2100 に対して
+ * 十分収まる範囲であり、Basic 5DTU で1トランザクションが長く居座らない量でもある。
+ */
+export const MAX_BULK_ROWS = 50;
+
+/**
+ * 一括登録の1行。
+ *
+ * 位置情報（lat / lng / locationAccuracy / placeName）は**受け取らない**。
+ * まとめ打ちはレシートの束を後から入力する用途で、入力者はその店にいない。
+ * 現在地を添えると支出マップと店名候補が無関係な座標で汚れる。
+ * 画面が送ってきても、ここに項目が無いので落ちる。
+ *
+ * clientId も行では受けない。冪等性はバッチ全体にひとつ持たせる。
+ */
+export const bulkEntryRowSchema = entryInputSchema
+  .omit({
+    clientId: true,
+    counterAccountId: true,
+    lat: true,
+    lng: true,
+    locationAccuracy: true,
+    placeName: true,
+  })
+  .extend({ kind: z.enum(BULK_ENTRY_KINDS) });
+
+export type BulkEntryRow = z.infer<typeof bulkEntryRowSchema>;
+
+export const bulkEntryInputSchema = z.object({
+  /** バッチの受付番号。再送しても二重に登録しないために使う */
+  clientId: z.string().uuid().nullable().optional(),
+  rows: z
+    .array(bulkEntryRowSchema)
+    .min(1, '登録する行がありません')
+    .max(MAX_BULK_ROWS, `一度に登録できるのは ${MAX_BULK_ROWS} 行までです`),
+});
+
+export type BulkEntryInput = z.infer<typeof bulkEntryInputSchema>;
+
+/** 一括登録で行ごとに返す不備。画面はこの index で行を特定する */
+export interface BulkRowIssue {
+  /** 送られてきた rows の添字（0始まり） */
+  index: number;
+  /** どの欄か。特定できなければ null */
+  field: string | null;
+  message: string;
 }
 
 /** 'YYYY-MM' を検証して、その月の開始日と翌月開始日を返す */

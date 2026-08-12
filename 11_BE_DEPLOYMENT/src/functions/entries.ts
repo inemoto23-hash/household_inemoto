@@ -63,6 +63,9 @@ function mapEntry(row: Record<string, any>) {
 /**
  * 参照先がすべて同じ世帯のものか確かめる。
  * 世帯をまたいだ ID を送り込まれても弾けるようにする。
+ *
+ * **単件用。** 1件につき最大3往復するため、行数が増える経路では使わない。
+ * 一括登録は entriesBulk.ts の findMissingReferences（往復1回）を使うこと。
  */
 export async function assertReferencesInHousehold(
   entry: NormalizedEntry,

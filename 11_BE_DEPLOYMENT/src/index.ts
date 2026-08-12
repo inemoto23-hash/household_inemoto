@@ -10,6 +10,7 @@ import './functions/avatar';
 import './functions/accounts';
 import './functions/master';
 import './functions/entries';
+import './functions/entriesBulk';
 import './functions/stock';
 import './functions/budgets';
 import './functions/periods';
