@@ -123,6 +123,8 @@ app.http('entriesList', {
     const to = req.query.get('to');
     const categoryId = req.query.get('categoryId');
     const accountId = req.query.get('accountId');
+    const placeId = req.query.get('placeId');
+    const merchant = req.query.get('merchant');
     const keyword = req.query.get('q');
     const limit = Math.min(Number(req.query.get('limit') ?? 200), 500);
 
@@ -150,6 +152,23 @@ app.http('entriesList', {
       if (accountId) {
         where.push('(e.account_id = @acc OR e.counter_account_id = @acc)');
         request.input('acc', sql.BigInt, Number(accountId));
+      }
+      /*
+       * 場所で絞る道は2つある。
+       *
+       * 分析画面の一覧は `COALESCE(表示名, merchant, place_name)` で束ねているので、
+       * 絞り込みも同じ2系統にしないと「一覧には出るのに明細が空」が起きる。
+       *
+       * - マスタに紐付いている行 … placeId。同名の別店舗をきちんと分けられる
+       * - 紐付いていない行       … merchant。一括登録だけの店など
+       */
+      if (placeId) {
+        where.push('e.place_id = @pid');
+        request.input('pid', sql.BigInt, Number(placeId));
+      }
+      if (merchant) {
+        where.push('COALESCE(e.merchant, e.place_name) = @mer');
+        request.input('mer', sql.NVarChar(120), merchant);
       }
       if (keyword) {
         where.push('(e.merchant LIKE @kw OR e.memo LIKE @kw)');

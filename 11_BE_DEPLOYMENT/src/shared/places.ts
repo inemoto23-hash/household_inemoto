@@ -38,6 +38,8 @@ const SPEND = `CASE e.kind WHEN 'expense' THEN e.amount WHEN 'refund' THEN -e.am
 
 export interface PlaceAggregate {
   name: string;
+  /** 場所マスタ。紐付いていなければ null（画面は店名で明細を引く） */
+  placeId: number | null;
   amount: number;
   entryCount: number;
   lastUsed: string;
@@ -70,6 +72,7 @@ export function placesSelect(): string {
   return `
     WITH ranked AS (
       SELECT COALESCE(pl.display_name, e.merchant, e.place_name) AS name,
+             pl.id             AS place_id,
              ${SPEND}          AS spend,
              e.entry_date      AS entry_date,
              -- マスタの座標を最優先する。無いときだけ記録の座標に落ちる
@@ -95,6 +98,8 @@ export function placesSelect(): string {
     )
     SELECT TOP (@places)
            name,
+           -- 明細を絞るときの鍵。紐付いていない行は NULL になり、画面は店名で引く
+           MAX(place_id)                     AS place_id,
            SUM(spend)                        AS amount,
            COUNT(*)                          AS entry_count,
            MAX(entry_date)                   AS last_used,
@@ -114,6 +119,7 @@ export function placesSelect(): string {
 export function toPlace(row: any): PlaceAggregate {
   return {
     name: row.name,
+    placeId: row.place_id === null || row.place_id === undefined ? null : Number(row.place_id),
     amount: num(row.amount),
     entryCount: num(row.entry_count),
     lastUsed:
