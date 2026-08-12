@@ -94,7 +94,9 @@ export function placesSelect(): string {
       FROM ranked
      GROUP BY name
     HAVING SUM(spend) <> 0
-     ORDER BY 2 DESC`;
+     -- 同額のときの決め手を必ず置く。無いと取り直すたびに並びが入れ替わりうる。
+     -- 地図の番号はこの並びに従うので、ここが安定しないと全体が安定しない
+     ORDER BY amount DESC, name`;
 }
 
 /** `placesSelect()` の1行を DTO へ */
@@ -114,13 +116,10 @@ export function toPlace(row: any): PlaceAggregate {
   };
 }
 
-/**
- * 地図に出す場所。**番号はこの並びで振る。**
+/*
+ * ここに「地図に出す場所を選ぶ」関数は置かない。
  *
- * 「絞ってから数える」を1回だけ行う。地図側で先に `TOP 10` を取ると、
- * 座標を持たない記録の影響で一覧と順位が食い違う。
- * FE の `pinNumbers` もこれと同じ手順（座標つきに絞って先頭から）で数えている。
+ * 順位を決める場所は**ひとつだけ**にする。この SELECT が返した並びが唯一の順位で、
+ * 地図はそれを受け取って描くだけ（`functions/map.ts` は DB を引かない）。
+ * 選び直す関数をここに置くと、また2か所で数えることになる。
  */
-export function mapPlaces(places: PlaceAggregate[]): PlaceAggregate[] {
-  return places.filter((p) => p.lat !== null && p.lng !== null).slice(0, MAX_PINS);
-}
