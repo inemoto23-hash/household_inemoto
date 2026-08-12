@@ -149,6 +149,20 @@ export function firstOccurrence(r: Recurrence): string | null {
   return nextOccurrence(r, addDays(r.startDate, -1));
 }
 
+/**
+ * date を**含めて**、それ以降で最初の該当日。
+ *
+ * 規則を作った（直した）瞬間に過去へ遡って記帳されるのを防ぐために使う。
+ * 過去の記録を定期にすると next_date が過去日になり、recurringSweep が
+ * 62日以内の分を実体化してしまう。今日を渡して引き直せば、それが起きない。
+ *
+ * nextOccurrence は after を含まない仕様なので、1日戻して呼ぶだけでよい。
+ * 1日ずつ進めるループにしないのは、月次が添字計算で一足飛びに求まるため。
+ */
+export function occurrenceOnOrAfter(r: Recurrence, date: string): string | null {
+  return nextOccurrence(r, addDays(date, -1));
+}
+
 function nextWeekly(r: Recurrence, floor: string): string | null {
   // 開始日の週を基準に、intervalN 週ごとに数える
   const startWeekStart = addDays(r.startDate, -weekdayOf(r.startDate));

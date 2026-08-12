@@ -21,10 +21,31 @@ import {
   firstOccurrence,
   nextOccurrence,
   normalizeRecurrence,
+  occurrenceOnOrAfter,
   recurrenceSchema,
   todayJst,
   validateRecurrence,
 } from '../domain/recurrence';
+
+/**
+ * 規則を保存する直前に、次回予定日を今日以降へ寄せる。
+ *
+ * 過去の記録を定期にしたときや、過去の開始日で規則を作ったときに
+ * next_date が過去日のまま保存されると、recurringSweep が 62日以内の分を
+ * 実体化してしまう。**作った（直した）瞬間に古い明細が湧く**のは事故でしかない。
+ *
+ * 起点（start_date）は動かさない。「毎月20日」という規則は元の記録の日付から
+ * 導けるほうが読みやすく、週次の間隔は開始週を基準に数えるため、
+ * 起点を動かすと周期そのものがずれる。**動かすのは次回予定日だけ。**
+ *
+ * 追いつき（recurringSweep）はこれとは別物なので触らない。
+ * あちらはタイマーが止まっていた規則を拾い直すためのもので、目的が違う。
+ */
+function notInThePast(recurrence: Recurrence, next: string | null): string | null {
+  if (!next) return null;
+  const today = todayJst();
+  return next < today ? occurrenceOnOrAfter(recurrence, today) : next;
+}
 
 const SELECT_RULE = `
   SELECT r.id, r.kind, r.amount,
@@ -302,10 +323,14 @@ app.http('recurringCreate', {
     }
     const tpl = normalized.entry;
 
-    // 開始日の分が既に記録済みなら、その日は飛ばして次から
-    const next = input.skipFirst
-      ? nextOccurrence(recurrence, recurrence.startDate)
-      : firstOccurrence(recurrence);
+    // 開始日の分が既に記録済みなら、その日は飛ばして次から。
+    // 起点が過去でも、実際に記帳を始めるのは今日以降にする
+    const next = notInThePast(
+      recurrence,
+      input.skipFirst
+        ? nextOccurrence(recurrence, recurrence.startDate)
+        : firstOccurrence(recurrence)
+    );
     if (!next) {
       return fail(400, 'VALIDATION_ERROR', 'この設定では記帳される日がありません。終了日を確認してください');
     }
@@ -442,11 +467,13 @@ app.http('recurringUpdate', {
       if (ownError) return fail(400, 'VALIDATION_ERROR', ownError);
 
       // 繰り返しが変わったら次回を引き直す。
-      // 既に記帳した日は動かせないので、その翌日以降で数える
+      // 既に記帳した日は動かせないので、その翌日以降で数える。
+      // 作るときと同じく、過去へ遡らせない（片方だけ直すと経路で挙動が割れる）
       const floor = before.lastPostedDate ?? recurrence.startDate;
-      const next = before.lastPostedDate
-        ? nextOccurrence(recurrence, floor)
-        : firstOccurrence(recurrence);
+      const next = notInThePast(
+        recurrence,
+        before.lastPostedDate ? nextOccurrence(recurrence, floor) : firstOccurrence(recurrence)
+      );
 
       await pool
         .request()
