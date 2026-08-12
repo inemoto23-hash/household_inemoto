@@ -47,6 +47,50 @@ export function isAtHome(
   return distanceMeters(home.lat, home.lng, point.lat, point.lng) <= home.radiusM;
 }
 
+// ---------------------------------------------------------------
+// 精度による足切り
+// ---------------------------------------------------------------
+
+/**
+ * これより誤差が大きい座標は保存しない（メートル）。
+ *
+ * PC の測位は Wi-Fi と IP アドレスから推定するため、誤差が数km 出る。
+ * その座標を残すと支出マップのピンが見知らぬ土地に立ち、店名の候補も
+ * 無関係な店から引かれる。スマホの GPS は 5〜50m なので、この線で分かれる。
+ *
+ * 画面側でも「マウスしか無い端末では位置を取りに行かない」判定をしているが、
+ * それは取りに行かないだけ。タッチできるノートPCや、屋内で GPS を掴めない
+ * スマホは画面側の判定をすり抜けるので、最後はここで捨てる。
+ */
+export const MAX_USEFUL_ACCURACY_M = 500;
+
+export interface Located {
+  lat: number | null;
+  lng: number | null;
+  locationAccuracy: number | null;
+}
+
+/**
+ * 誤差が大きすぎる座標を捨てる。捨てるときは3つとも null にする。
+ *
+ * 精度が分からない（null）ものは通す。値が無いことは「悪い」ことの証拠にならない。
+ */
+export function dropIfImprecise(input: {
+  lat?: number | null;
+  lng?: number | null;
+  locationAccuracy?: number | null;
+}): Located {
+  const lat = input.lat ?? null;
+  const lng = input.lng ?? null;
+  const accuracy = input.locationAccuracy ?? null;
+
+  if (lat === null || lng === null) return { lat: null, lng: null, locationAccuracy: null };
+  if (accuracy !== null && accuracy > MAX_USEFUL_ACCURACY_M) {
+    return { lat: null, lng: null, locationAccuracy: null };
+  }
+  return { lat, lng, locationAccuracy: accuracy };
+}
+
 /**
  * 半径を含む矩形の緯度経度の幅。
  *

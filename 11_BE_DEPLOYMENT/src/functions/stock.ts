@@ -17,6 +17,7 @@ import { num, numOrNull } from '../db/convert';
 import { ok, fail, internalError } from '../shared/http';
 import { withAuth } from '../shared/auth';
 import { stripIfAtHome } from '../shared/home';
+import { dropIfImprecise } from '../domain/geo';
 import { entryInputSchema, normalizeEntry } from '../domain/entry';
 import { assertReferencesInHousehold } from './entries';
 
@@ -253,9 +254,12 @@ app.http('stockCreate', {
         if (dup.recordset[0]) return ok(mapStock(dup.recordset[0]));
       }
 
-      // 自宅の範囲なら座標を捨てる。あわせて場所からの推測もしない。
-      // 自宅の近所で過去に使った店を候補に出しても当たらない
-      const { located } = await stripIfAtHome(user.householdId, input);
+      /*
+       * 誤差が大きすぎる座標を先に捨て、そのあと自宅の範囲かを見る。
+       * どちらも落ちれば場所からの推測もしない。
+       * PC の数km ずれた座標や自宅の近所の店を候補に出しても当たらない
+       */
+      const { located } = await stripIfAtHome(user.householdId, dropIfImprecise(input));
 
       // 位置が取れていれば、同じ場所での過去の記録から分類を推測する
       const guess =

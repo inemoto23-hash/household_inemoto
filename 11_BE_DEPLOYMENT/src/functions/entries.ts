@@ -12,6 +12,7 @@ import { num, numOrNull } from '../db/convert';
 import { ok, fail, internalError } from '../shared/http';
 import { withAuth } from '../shared/auth';
 import { stripIfAtHome } from '../shared/home';
+import { dropIfImprecise } from '../domain/geo';
 import { entryInputSchema, normalizeEntry, monthRange, NormalizedEntry } from '../domain/entry';
 
 const SELECT_ENTRY = `
@@ -202,9 +203,17 @@ app.http('entriesCreate', {
         if (existing.recordset[0]) return ok(mapEntry(existing.recordset[0]), 200);
       }
 
-      // 自宅の範囲なら座標を捨てる。画面が送ってきても、ここで確実に落ちる。
-      // 自宅で付けたクレジット履歴が支出マップに並ぶのを防ぐ
-      const { located } = await stripIfAtHome(user.householdId, parsed.data);
+      /*
+       * 座標は2段階で削る。どちらも画面の作りには依存させない。
+       *
+       * 1. 誤差が大きすぎるものを捨てる。PC の Wi-Fi/IP 測位は数km ずれるので、
+       *    残すと支出マップが見知らぬ土地だらけになる
+       * 2. 自宅の範囲なら捨てる。自宅で付けたクレジット履歴が地図に並ぶのを防ぐ
+       */
+      const { located } = await stripIfAtHome(
+        user.householdId,
+        dropIfImprecise(parsed.data)
+      );
 
       const inserted = await pool
         .request()

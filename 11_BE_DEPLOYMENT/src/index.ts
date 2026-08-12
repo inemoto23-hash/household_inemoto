@@ -17,6 +17,7 @@ import './functions/periods';
 import './functions/analytics';
 import './functions/map';
 import './functions/home';
+import './functions/locations';
 import './functions/schedules';
 import './functions/reminders';
 import './functions/recurring';
