@@ -13,11 +13,10 @@ import { num } from '../db/convert';
 import { ok, fail, internalError } from '../shared/http';
 import { withAuth } from '../shared/auth';
 import { monthRange } from '../domain/entry';
+import { PLACE_LIMIT, placesSelect, toPlace } from '../shared/places';
 
 /** 推移を何ヶ月分見せるか */
 const TREND_MONTHS = 12;
-/** 場所別に出す上限 */
-const PLACE_LIMIT = 30;
 
 /** 'YYYY-MM' に月を足す */
 function addMonths(ym: string, delta: number): string {
@@ -112,32 +111,14 @@ app.http('analyticsMonth', {
            GROUP BY DATEDIFF(day, '19000107', e.entry_date) % 7
            ORDER BY 1;
 
-          -- 6) 場所別。座標があれば地図で開けるよう代表点も返す
-          SELECT TOP (@places)
-                 COALESCE(e.merchant, e.place_name) AS name,
-                 SUM(${SPEND})     AS amount,
-                 COUNT(*)          AS entry_count,
-                 MAX(e.entry_date) AS last_used,
-                 AVG(CAST(e.lat AS FLOAT)) AS lat,
-                 AVG(CAST(e.lng AS FLOAT)) AS lng,
-                 MAX(c.name)  AS category_name,
-                 MAX(c.color) AS category_color
-            FROM dbo.entries e
-            LEFT JOIN dbo.budget_categories c ON c.id = e.budget_category_id
-           WHERE e.household_id = @hid AND e.is_deleted = 0
-             AND e.entry_date >= @from AND e.entry_date < @to
-             AND e.kind IN ('expense', 'refund')
-             AND COALESCE(e.merchant, e.place_name) IS NOT NULL
-           GROUP BY COALESCE(e.merchant, e.place_name)
-          HAVING SUM(${SPEND}) <> 0
-           ORDER BY 2 DESC;
+          -- 6) 場所別。座標があれば地図で開けるよう代表点も返す。
+          --    支出マップと同じものを使う（shared/places.ts）。
+          --    ここに書き直すと番号がずれる
+          ${placesSelect()};
         `);
 
       const [trendRows, categoryRows, accountRows, memberRows, weekdayRows, placeRows] =
         result.recordsets as any[];
-
-      const toDate = (v: any) =>
-        v instanceof Date ? v.toISOString().slice(0, 10) : String(v).slice(0, 10);
 
       // 記録の無い月も並べる。歯抜けだと推移が読めない
       const trendByMonth = new Map<string, { expense: number; income: number }>();
@@ -197,16 +178,7 @@ app.http('analyticsMonth', {
           amount: num(row.amount),
           entryCount: num(row.entry_count),
         })),
-        places: placeRows.map((row: any) => ({
-          name: row.name,
-          amount: num(row.amount),
-          entryCount: num(row.entry_count),
-          lastUsed: toDate(row.last_used),
-          lat: row.lat === null ? null : Number(row.lat),
-          lng: row.lng === null ? null : Number(row.lng),
-          categoryName: row.category_name,
-          categoryColor: row.category_color,
-        })),
+        places: placeRows.map(toPlace),
       });
     } catch (err) {
       return internalError(err, (m) => ctx.error(m));

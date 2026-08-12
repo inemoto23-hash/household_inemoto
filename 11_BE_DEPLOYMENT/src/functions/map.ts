@@ -15,12 +15,7 @@ import { fail, internalError } from '../shared/http';
 import { withAuth } from '../shared/auth';
 import { fetchStaticMap, isMapsConfigured, MapPin } from '../shared/maps';
 import { monthRange } from '../domain/entry';
-
-/** 地図に並べる上限。これ以上はピンが重なって読めない */
-const MAX_PINS = 10;
-
-/** 返金は支出を戻すもの。分析画面と同じ数え方をする */
-const SPEND = `CASE e.kind WHEN 'expense' THEN e.amount WHEN 'refund' THEN -e.amount ELSE 0 END`;
+import { PLACE_LIMIT, mapPlaces, placesSelect, toPlace } from '../shared/places';
 
 app.http('analyticsMap', {
   methods: ['GET'],
@@ -42,32 +37,25 @@ app.http('analyticsMap', {
 
     try {
       const pool = await getPool();
+      /*
+       * 一覧とまったく同じ集計・同じ並びを受け取る。
+       *
+       * 以前はここで `TOP 10` を取り、しかも座標つきの記録だけで金額を出していた。
+       * そのため座標を持たない記録がある店は地図側でだけ順位が下がり、
+       * 一覧の①と画像の①が別の店になっていた。
+       * **絞るのは受け取った後。番号は絞ってから1回だけ数える。**
+       */
       const result = await pool
         .request()
         .input('hid', sql.BigInt, user.householdId)
         .input('from', sql.Date, range.from)
         .input('to', sql.Date, range.toExclusive)
-        .input('top', sql.Int, MAX_PINS)
-        .query(`
-          SELECT TOP (@top)
-                 COALESCE(e.merchant, e.place_name) AS name,
-                 SUM(${SPEND})             AS amount,
-                 AVG(CAST(e.lat AS FLOAT)) AS lat,
-                 AVG(CAST(e.lng AS FLOAT)) AS lng
-            FROM dbo.entries e
-           WHERE e.household_id = @hid AND e.is_deleted = 0
-             AND e.entry_date >= @from AND e.entry_date < @to
-             AND e.kind IN ('expense', 'refund')
-             AND COALESCE(e.merchant, e.place_name) IS NOT NULL
-             AND e.lat IS NOT NULL AND e.lng IS NOT NULL
-           GROUP BY COALESCE(e.merchant, e.place_name)
-          HAVING SUM(${SPEND}) <> 0
-           ORDER BY 2 DESC
-        `);
+        .input('places', sql.Int, PLACE_LIMIT)
+        .query(placesSelect());
 
-      const pins: MapPin[] = result.recordset.map((row, i) => ({
-        lat: Number(row.lat),
-        lng: Number(row.lng),
+      const pins: MapPin[] = mapPlaces(result.recordset.map(toPlace)).map((place, i) => ({
+        lat: place.lat!,
+        lng: place.lng!,
         label: String(i + 1),
       }));
 

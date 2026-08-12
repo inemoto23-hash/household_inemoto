@@ -32,6 +32,14 @@ const BUCKETS = [200, MAX_USEFUL_ACCURACY_M, 1000] as const;
 const clearInputSchema = z.object({
   /** この誤差（メートル）を**超える**ものを消す */
   minAccuracy: z.coerce.number().int().min(0).max(1_000_000),
+  /**
+   * 誤差が分からない（`location_accuracy IS NULL`）ものも消すか。
+   *
+   * 既定は消さない。値が無いことは「悪い」ことの証拠にならないため。
+   * ただし逃げ道が無いと、混ざってしまった座標を消す手段が一切なくなる。
+   * 画面では別のボタンにしてあり、誤差の大きいものと**まとめて押せない**。
+   */
+  includeUnknown: z.boolean().optional().default(false),
 });
 
 // ---------------------------------------------------------------
@@ -107,7 +115,7 @@ app.http('locationsClear', {
     if (!parsed.success) {
       return fail(400, 'VALIDATION_ERROR', '誤差の指定を確認してください', parsed.error.flatten());
     }
-    const { minAccuracy } = parsed.data;
+    const { minAccuracy, includeUnknown } = parsed.data;
 
     try {
       const pool = await getPool();
@@ -117,10 +125,15 @@ app.http('locationsClear', {
         await transaction.begin();
 
         /*
-         * 誤差が分からない（NULL）ものは消さない。
-         * 値が無いことは「悪い」ことの証拠にならないため。
+         * 誤差が分からない（NULL）ものは、指定されたときだけ消す。
+         * 既定で消さないのは、値が無いことが「悪い」ことの証拠にならないため。
+         *
          * 消すのは座標の3列だけで、merchant / place_name / 金額はそのまま。
          */
+        const target = includeUnknown
+          ? `(location_accuracy > @acc OR location_accuracy IS NULL)`
+          : `location_accuracy > @acc`;
+
         const cleared = await new sql.Request(transaction)
           .input('hid', sql.BigInt, user.householdId)
           .input('acc', sql.Int, minAccuracy)
@@ -129,13 +142,13 @@ app.http('locationsClear', {
                 SET lat = NULL, lng = NULL, location_accuracy = NULL,
                     updated_at = SYSUTCDATETIME()
               WHERE household_id = @hid AND is_deleted = 0
-                AND lat IS NOT NULL AND location_accuracy > @acc;
+                AND lat IS NOT NULL AND ${target};
              SELECT @@ROWCOUNT AS n;
 
              UPDATE dbo.entry_stock
                 SET lat = NULL, lng = NULL, location_accuracy = NULL
               WHERE household_id = @hid
-                AND lat IS NOT NULL AND location_accuracy > @acc;
+                AND lat IS NOT NULL AND ${target};
              SELECT @@ROWCOUNT AS n;`
           );
 
@@ -146,6 +159,7 @@ app.http('locationsClear', {
           entries: num(sets[0][0].n),
           stock: num(sets[1][0].n),
           minAccuracy,
+          includeUnknown,
         });
       } catch (err) {
         await transaction.rollback().catch(() => undefined);
