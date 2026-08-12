@@ -17,6 +17,7 @@ import { num, numOrNull } from '../db/convert';
 import { ok, fail, internalError } from '../shared/http';
 import { withAuth } from '../shared/auth';
 import { stripIfAtHome } from '../shared/home';
+import { attachPlace } from '../shared/placeLink';
 import { dropIfImprecise } from '../domain/geo';
 import { entryInputSchema, normalizeEntry } from '../domain/entry';
 import { assertReferencesInHousehold } from './entries';
@@ -154,26 +155,40 @@ app.http('placesNearby', {
         .input('lng', sql.Decimal(9, 6), lng)
         .input('d', sql.Decimal(9, 6), spread)
         .query(
+          /*
+           * 候補の見出しは場所マスタの表示名を優先する。
+           * 「イオン」が2店舗あるとき、どちらを選んだのか分からないまま
+           * 同じ文字列が2つ並ぶのを避ける（「イオン（羽生市）」で区別できる）。
+           *
+           * ただし**入力欄に入るのは利用者の呼び方**。地名は表示のための飾りなので、
+           * 記録の `merchant` に地名まで書き込むと、あとで地名が変わったときに
+           * 過去の記録だけ古い名前で残る。name と label を分けて返す。
+           */
           `SELECT TOP 8
-                  COALESCE(e.merchant, e.place_name) AS name,
+                  COALESCE(pl.name, e.merchant, e.place_name)         AS name,
+                  COALESCE(pl.display_name, e.merchant, e.place_name) AS label,
                   MAX(e.budget_category_id) AS category_id,
                   MAX(e.account_id)         AS account_id,
                   COUNT(*)                  AS n,
                   MAX(e.entry_date)         AS last_used
              FROM dbo.entries e
+             LEFT JOIN dbo.places pl ON pl.id = e.place_id
             WHERE e.household_id = @hid
               AND e.is_deleted = 0
-              AND COALESCE(e.merchant, e.place_name) IS NOT NULL
+              AND COALESCE(pl.name, e.merchant, e.place_name) IS NOT NULL
               AND e.lat IS NOT NULL AND e.lng IS NOT NULL
               AND e.lat BETWEEN @lat - @d AND @lat + @d
               AND e.lng BETWEEN @lng - @d AND @lng + @d
-            GROUP BY COALESCE(e.merchant, e.place_name)
+            GROUP BY COALESCE(pl.name, e.merchant, e.place_name),
+                     COALESCE(pl.display_name, e.merchant, e.place_name)
             ORDER BY COUNT(*) DESC, MAX(e.entry_date) DESC`
         );
 
       return ok(
         r.recordset.map((row) => ({
           name: row.name,
+          /** 画面に出す見出し。地名つき。入力欄へ入れるのは name のほう */
+          label: row.label ?? row.name,
           categoryId: numOrNull(row.category_id),
           accountId: numOrNull(row.account_id),
           count: num(row.n),
@@ -463,6 +478,19 @@ app.http('stockCommit', {
         );
 
       await transaction.commit();
+
+      /*
+       * 場所マスタへ紐付ける。**確定を終えてから**行う。
+       * トランザクションの中に入れると、マスタの作成でつまずいたときに
+       * 確定そのものが巻き戻る。地名は飾りなので、それと引き換えにしない。
+       */
+      await attachPlace(pool, user.householdId, entryId, {
+        merchant: entry.merchant,
+        placeName: parsed.data.placeName ?? null,
+        lat: row.lat === null ? null : Number(row.lat),
+        lng: row.lng === null ? null : Number(row.lng),
+      }).catch((e) => ctx.warn(`場所マスタへの紐付けに失敗: ${e}`));
+
       return ok({ id, entryId }, 201);
     } catch (err) {
       await transaction.rollback().catch(() => undefined);

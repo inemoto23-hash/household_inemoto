@@ -238,6 +238,42 @@ app.http('entriesBulkCreate', {
 
         // OUTPUT の順序は保証されないので、行との対応付けには使わない
         const ids = inserted.recordset.map((r) => num(r.id)).sort((a, b) => a - b);
+
+        /*
+         * 場所マスタへ紐付ける。**1文でまとめて行う。**
+         * 行ごとに問い合わせると 50 行で 50 往復になり、
+         * この機能が往復を増やさないために払った工夫が無駄になる。
+         *
+         * 一括登録は座標を持たないので、突き合わせは店名だけ。
+         * `NOT EXISTS` が「同名のマスタがちょうど1件のときだけ紐付ける」を担う。
+         * 複数あるとどの店か決められない——当てずっぽうに選ぶと、
+         * 金額が別の店に混ざって後から気付けない。
+         *
+         * ここで失敗しても登録は巻き戻さない。記録は残っているほうが常に良い。
+         */
+        await pool
+          .request()
+          .input('hid', sql.BigInt, user.householdId)
+          .query(
+            `UPDATE e
+                SET place_id = p.id
+               FROM dbo.entries e
+               JOIN dbo.places p
+                 ON p.household_id = e.household_id
+                AND p.is_archived = 0
+                AND p.name = e.merchant
+              WHERE e.household_id = @hid
+                AND e.place_id IS NULL
+                AND e.id IN (${ids.join(',')})
+                AND NOT EXISTS (
+                      SELECT 1 FROM dbo.places p2
+                       WHERE p2.household_id = e.household_id
+                         AND p2.is_archived = 0
+                         AND p2.name = e.merchant
+                         AND p2.id <> p.id)`
+          )
+          .catch((e) => ctx.warn(`場所マスタへの紐付けに失敗: ${e}`));
+
         return ok({ created: ids.length, ids, duplicated: false }, 201);
       } catch (err) {
         await transaction.rollback().catch(() => undefined);

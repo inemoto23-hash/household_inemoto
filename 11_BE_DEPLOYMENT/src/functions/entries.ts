@@ -12,6 +12,7 @@ import { num, numOrNull } from '../db/convert';
 import { ok, fail, internalError } from '../shared/http';
 import { withAuth } from '../shared/auth';
 import { stripIfAtHome } from '../shared/home';
+import { attachPlace } from '../shared/placeLink';
 import { dropIfImprecise } from '../domain/geo';
 import { entryInputSchema, normalizeEntry, monthRange, NormalizedEntry } from '../domain/entry';
 
@@ -245,6 +246,20 @@ app.http('entriesCreate', {
                    @merchant, @memo, @lat, @lng, @acc_m, @place, @by)`
         );
 
+      /*
+       * 場所マスタへ紐付ける。
+       *
+       * **失敗しても記録は巻き戻さない。** 記録は残っているほうが常に良い。
+       * 紐付かなければ place_id が NULL のままになり、集計は今までどおり店名で行われる。
+       * 地名は定時ジョブが後から埋めるので、ここで外部 API は呼ばない。
+       */
+      await attachPlace(pool, user.householdId, Number(inserted.recordset[0].id), {
+        merchant: entry.merchant,
+        placeName: parsed.data.placeName ?? null,
+        lat: located.lat,
+        lng: located.lng,
+      }).catch((e) => ctx.warn(`場所マスタへの紐付けに失敗: ${e}`));
+
       const created = await pool
         .request()
         .input('id', sql.BigInt, inserted.recordset[0].id)
@@ -334,6 +349,25 @@ app.http('entriesUpdate', {
                   updated_at = SYSUTCDATETIME()
             WHERE id = @id`
         );
+
+      /*
+       * 店名を直したら紐付けもやり直す。
+       * place_id を古いまま残すと、直したのに集計だけ前の店に入り続ける。
+       *
+       * 座標は編集で変えられないので、いま保存されているものを読み直して使う。
+       * SELECT_ENTRY は座標を返さない（画面に要らないため）ので、ここだけ引く。
+       */
+      const located = await pool
+        .request()
+        .input('id', sql.BigInt, id)
+        .query(`SELECT lat, lng FROM dbo.entries WHERE id = @id`);
+
+      await attachPlace(pool, user.householdId, id, {
+        merchant: entry.merchant,
+        placeName: before.placeName ?? null,
+        lat: located.recordset[0]?.lat == null ? null : Number(located.recordset[0].lat),
+        lng: located.recordset[0]?.lng == null ? null : Number(located.recordset[0].lng),
+      }).catch((e) => ctx.warn(`場所マスタへの紐付けに失敗: ${e}`));
 
       const updated = await pool
         .request()

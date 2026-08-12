@@ -22,3 +22,4 @@ import './functions/schedules';
 import './functions/reminders';
 import './functions/recurring';
 import './functions/recurringSweep';
+import './functions/placeGeocodeSweep';

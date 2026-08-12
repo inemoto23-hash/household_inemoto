@@ -14,6 +14,13 @@
  *
  * 座標を持たない記録は今後も増える（一括登録は位置を受け取らない、自宅では座標を落とす、
  * 誤差500m超は捨てる）。**ずれられない作りにしておくこと自体が対策**になる。
+ *
+ * 束ねる単位は場所マスタ（`dbo.places`）。同じ「イオン」でも離れた場所は別のマスタに
+ * なるので、2店舗が1つのピンにまとまらない。代表座標もマスタが持つ固定値を使う。
+ * 記録側の座標から毎回選び直すと、最後の1件が外れ値だったときに引きずられる。
+ *
+ * マスタに紐付いていない記録（一括登録だけの店、マイグレーション前の残り）は
+ * 今までどおり店名で束ねる。`COALESCE` がその受け皿になっている。
  */
 import { num } from '../db/convert';
 
@@ -62,33 +69,37 @@ export interface PlaceAggregate {
 export function placesSelect(): string {
   return `
     WITH ranked AS (
-      SELECT COALESCE(e.merchant, e.place_name) AS name,
+      SELECT COALESCE(pl.display_name, e.merchant, e.place_name) AS name,
              ${SPEND}          AS spend,
              e.entry_date      AS entry_date,
+             -- マスタの座標を最優先する。無いときだけ記録の座標に落ちる
+             pl.lat            AS place_lat,
+             pl.lng            AS place_lng,
              e.lat             AS lat,
              e.lng             AS lng,
              c.name            AS category_name,
              c.color           AS category_color,
              ROW_NUMBER() OVER (
-               PARTITION BY COALESCE(e.merchant, e.place_name)
+               PARTITION BY COALESCE(pl.display_name, e.merchant, e.place_name)
                ORDER BY CASE WHEN e.lat IS NULL THEN 1 ELSE 0 END,
                         e.entry_date DESC,
                         e.id DESC
              ) AS rn
         FROM dbo.entries e
         LEFT JOIN dbo.budget_categories c ON c.id = e.budget_category_id
+        LEFT JOIN dbo.places pl           ON pl.id = e.place_id
        WHERE e.household_id = @hid AND e.is_deleted = 0
          AND e.entry_date >= @from AND e.entry_date < @to
          AND e.kind IN ('expense', 'refund')
-         AND COALESCE(e.merchant, e.place_name) IS NOT NULL
+         AND COALESCE(pl.display_name, e.merchant, e.place_name) IS NOT NULL
     )
     SELECT TOP (@places)
            name,
            SUM(spend)                        AS amount,
            COUNT(*)                          AS entry_count,
            MAX(entry_date)                   AS last_used,
-           MAX(CASE WHEN rn = 1 THEN lat END) AS lat,
-           MAX(CASE WHEN rn = 1 THEN lng END) AS lng,
+           COALESCE(MAX(place_lat), MAX(CASE WHEN rn = 1 THEN lat END)) AS lat,
+           COALESCE(MAX(place_lng), MAX(CASE WHEN rn = 1 THEN lng END)) AS lng,
            MAX(category_name)                AS category_name,
            MAX(category_color)               AS category_color
       FROM ranked
