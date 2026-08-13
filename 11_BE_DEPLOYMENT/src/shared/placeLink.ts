@@ -93,15 +93,21 @@ export async function resolvePlaceId(
  *
  * 記録の登録そのものとは切り離して呼ぶ。ここで例外が出ても、
  * 呼び出し側は記録を消さずに握りつぶす（記録は残っているほうが常に良い）。
+ *
+ * `clearIfUnmatched` を立てると、**紐付け先が見つからないときに NULL を書く**。
+ * 店名を直したときはこちらを使う。書かずに戻ると古いマスタを指したままになり、
+ * 「履歴では ENEOS なのに分析ではガソリンのまま」という形で食い違う。
+ * 新規登録のときは元から NULL なので、立てる意味がない。
  */
 export async function attachPlace(
   pool: ConnectionPool,
   householdId: number,
   entryId: number,
-  input: { merchant?: string | null; placeName?: string | null; lat: number | null; lng: number | null }
+  input: { merchant?: string | null; placeName?: string | null; lat: number | null; lng: number | null },
+  options: { clearIfUnmatched?: boolean } = {}
 ): Promise<number | null> {
   const placeId = await resolvePlaceId(pool, householdId, input);
-  if (placeId === null) return null;
+  if (placeId === null && !options.clearIfUnmatched) return null;
 
   await pool
     .request()

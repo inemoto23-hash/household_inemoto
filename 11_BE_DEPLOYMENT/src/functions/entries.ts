@@ -13,6 +13,7 @@ import { ok, fail, internalError } from '../shared/http';
 import { withAuth } from '../shared/auth';
 import { stripIfAtHome } from '../shared/home';
 import { attachPlace } from '../shared/placeLink';
+import { normalizePlaceName } from '../domain/place';
 import { dropIfImprecise } from '../domain/geo';
 import { entryInputSchema, normalizeEntry, monthRange, NormalizedEntry } from '../domain/entry';
 
@@ -371,22 +372,39 @@ app.http('entriesUpdate', {
 
       /*
        * 店名を直したら紐付けもやり直す。
-       * place_id を古いまま残すと、直したのに集計だけ前の店に入り続ける。
+       *
+       * **名前が変わったときだけ**やり直し、見つからなければ NULL を書く。
+       * 書かずに戻ると古いマスタを指したままになり、
+       * 「履歴では ENEOS なのに分析ではガソリンのまま」という形で食い違う。
+       *
+       * 名前が変わっていないなら触らない。同名のマスタが複数ある状態では
+       * 引き直しても決められず、黙って紐付けが外れてしまう。
        *
        * 座標は編集で変えられないので、いま保存されているものを読み直して使う。
        * SELECT_ENTRY は座標を返さない（画面に要らないため）ので、ここだけ引く。
        */
-      const located = await pool
-        .request()
-        .input('id', sql.BigInt, id)
-        .query(`SELECT lat, lng FROM dbo.entries WHERE id = @id`);
+      const nameChanged =
+        normalizePlaceName(entry.merchant) !== normalizePlaceName(before.merchant);
 
-      await attachPlace(pool, user.householdId, id, {
-        merchant: entry.merchant,
-        placeName: before.placeName ?? null,
-        lat: located.recordset[0]?.lat == null ? null : Number(located.recordset[0].lat),
-        lng: located.recordset[0]?.lng == null ? null : Number(located.recordset[0].lng),
-      }).catch((e) => ctx.warn(`場所マスタへの紐付けに失敗: ${e}`));
+      if (nameChanged) {
+        const located = await pool
+          .request()
+          .input('id', sql.BigInt, id)
+          .query(`SELECT lat, lng FROM dbo.entries WHERE id = @id`);
+
+        await attachPlace(
+          pool,
+          user.householdId,
+          id,
+          {
+            merchant: entry.merchant,
+            placeName: before.placeName ?? null,
+            lat: located.recordset[0]?.lat == null ? null : Number(located.recordset[0].lat),
+            lng: located.recordset[0]?.lng == null ? null : Number(located.recordset[0].lng),
+          },
+          { clearIfUnmatched: true }
+        ).catch((e) => ctx.warn(`場所マスタへの紐付けに失敗: ${e}`));
+      }
 
       const updated = await pool
         .request()
