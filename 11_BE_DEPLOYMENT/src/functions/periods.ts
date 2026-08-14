@@ -14,50 +14,21 @@ import { num, numOrNull } from '../db/convert';
 import { ok, fail, internalError } from '../shared/http';
 import { withAuth } from '../shared/auth';
 import { monthRange } from '../domain/entry';
-
-/** 'YYYY-MM' の翌月 */
-function nextMonth(ym: string): string {
-  const [y, m] = ym.split('-').map(Number);
-  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
-}
-
-/** 'YYYY-MM' の前月 */
-function prevMonth(ym: string): string {
-  const [y, m] = ym.split('-').map(Number);
-  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
-}
-
-/** その月の末日。プール移動の日付に使う */
-function lastDay(ym: string): string {
-  const range = monthRange(ym)!;
-  const d = new Date(`${range.toExclusive}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
-
-type Action = 'none' | 'carry' | 'to_pool';
-
-interface Line {
-  categoryId: number;
-  name: string;
-  color: string | null;
-  icon: string | null;
-  policy: string;
-  allocated: number;
-  spent: number;
-  remaining: number;
-  action: Action;
-  /** 動く金額。action が none なら 0 */
-  amount: number;
-  poolId: number | null;
-  poolName: string | null;
-}
+import {
+  computeCloseLines,
+  lastDay,
+  nextMonth,
+  prevMonth,
+  type CloseLine,
+} from '../domain/period';
+import { buildTransferPair } from '../domain/allocation';
 
 /**
  * 締めたときに何が起きるかを計算する。
  * 書き込みは一切しない。プレビューと実行で同じ関数を使い、表示と結果を必ず一致させる。
+ * 判定の本体は domain/period.ts の computeCloseLines（純粋関数）。
  */
-async function computeLines(householdId: number, ym: string): Promise<Line[]> {
+async function computeLines(householdId: number, ym: string): Promise<CloseLine[]> {
   const range = monthRange(ym)!;
   const pool = await getPool();
 
@@ -86,43 +57,20 @@ async function computeLines(householdId: number, ym: string): Promise<Line[]> {
         ORDER BY c.order_index, c.name`
     );
 
-  return r.recordset.map((row) => {
-    const allocated = num(row.allocated);
-    const spent = num(row.spent);
-    const remaining = allocated - spent;
-    const policy = row.carry_over_policy as string;
-    const poolId = numOrNull(row.carry_over_pool_id);
-
-    let action: Action = 'none';
-    let amount = 0;
-
-    if (policy === 'surplus' && remaining > 0) {
-      action = 'carry';
-      amount = remaining;
-    } else if (policy === 'full' && remaining !== 0) {
-      // 使いすぎた分も翌月から差し引く。マイナスのまま渡す
-      action = 'carry';
-      amount = remaining;
-    } else if (policy === 'to_pool' && remaining > 0 && poolId) {
-      action = 'to_pool';
-      amount = remaining;
-    }
-
-    return {
+  // DB の行（BIGINT は文字列で返る）を数値へ詰め替え、判定は純粋関数に任せる
+  return computeCloseLines(
+    r.recordset.map((row) => ({
       categoryId: num(row.id),
       name: row.name,
       color: row.color,
       icon: row.icon,
-      policy,
-      allocated,
-      spent,
-      remaining,
-      action,
-      amount,
-      poolId,
+      policy: row.carry_over_policy as string,
+      allocated: num(row.allocated),
+      spent: num(row.spent),
+      poolId: numOrNull(row.carry_over_pool_id),
       poolName: row.pool_name,
-    };
-  });
+    }))
+  );
 }
 
 async function periodStatus(householdId: number, ym: string): Promise<string | null> {
@@ -251,15 +199,16 @@ app.http('periodClose', {
                  VALUES (@hid, @ym, @cat, @amount, 'carry_over', @note, @by)`
               );
           } else {
-            // 予算からプールへ。台帳をまたぐので対で書き、同じ transfer_group_id で結ぶ
-            const group = randomUUID();
+            // 予算からプールへ。台帳をまたぐので対で書き、同じ transfer_group_id で結ぶ。
+            // 予算が out（負）、プールが in（正）
+            const pair = buildTransferPair(line.amount, randomUUID());
 
             const alloc = await new sql.Request(transaction)
               .input('hid', sql.BigInt, user.householdId)
               .input('ym', sql.Char(7), ym)
               .input('cat', sql.BigInt, line.categoryId)
-              .input('amount', sql.BigInt, -line.amount)
-              .input('group', sql.UniqueIdentifier, group)
+              .input('amount', sql.BigInt, pair.outAmount)
+              .input('group', sql.UniqueIdentifier, pair.groupId)
               .input('note', sql.NVarChar(200), `${ym} の余りを ${line.poolName} へ`)
               .input('by', sql.BigInt, user.id)
               .query(
@@ -274,8 +223,8 @@ app.http('periodClose', {
               .input('pool', sql.BigInt, line.poolId)
               .input('on', sql.Date, lastDay(ym))
               .input('ym', sql.Char(7), ym)
-              .input('amount', sql.BigInt, line.amount)
-              .input('group', sql.UniqueIdentifier, group)
+              .input('amount', sql.BigInt, pair.inAmount)
+              .input('group', sql.UniqueIdentifier, pair.groupId)
               .input('alloc', sql.BigInt, num(alloc.recordset[0].id))
               .input('note', sql.NVarChar(200), `${ym} の ${line.name} の余り`)
               .input('by', sql.BigInt, user.id)

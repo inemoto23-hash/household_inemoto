@@ -16,6 +16,7 @@ import { num, numOrNull } from '../db/convert';
 import { ok, fail, internalError } from '../shared/http';
 import { withAuth, AuthedUser } from '../shared/auth';
 import { monthRange } from '../domain/entry';
+import { buildTransferPair } from '../domain/allocation';
 
 const yearMonthSchema = z.string().regex(/^\d{4}-\d{2}$/);
 
@@ -499,21 +500,22 @@ async function insertAllocationPair(args: {
 }): Promise<void> {
   const pool = await getPool();
   const transaction = new sql.Transaction(pool);
-  const groupId = randomUUID();
+  // 移動元が out（負）、移動先が in（正）
+  const pair = buildTransferPair(args.amount, randomUUID());
 
   try {
     await transaction.begin();
 
     for (const [categoryId, signed] of [
-      [args.fromCategoryId, -args.amount],
-      [args.toCategoryId, args.amount],
+      [args.fromCategoryId, pair.outAmount],
+      [args.toCategoryId, pair.inAmount],
     ] as const) {
       await new sql.Request(transaction)
         .input('hid', sql.BigInt, args.householdId)
         .input('ym', sql.Char(7), args.yearMonth)
         .input('cat', sql.BigInt, categoryId)
         .input('amount', sql.BigInt, signed)
-        .input('group', sql.UniqueIdentifier, groupId)
+        .input('group', sql.UniqueIdentifier, pair.groupId)
         .input('note', sql.NVarChar(200), args.note)
         .input('by', sql.BigInt, args.user.id)
         .query(
@@ -569,9 +571,18 @@ async function movePool(args: {
   const pool = await getPool();
   const transaction = new sql.Transaction(pool);
   const paired = args.categoryId !== null;
-  const groupId = paired ? randomUUID() : null;
+  // 対で書くときだけゼロサムの決まりが要る。
+  // プールへ入れる（in）: 予算が out・プールが in。出す（out）はその逆
+  const pair = paired ? buildTransferPair(args.amount, randomUUID()) : null;
+  const groupId = pair?.groupId ?? null;
 
-  const poolAmount = args.direction === 'in' ? args.amount : -args.amount;
+  const poolAmount = pair
+    ? args.direction === 'in'
+      ? pair.inAmount
+      : pair.outAmount
+    : args.direction === 'in'
+    ? args.amount
+    : -args.amount;
   const poolReason = paired
     ? args.direction === 'in'
       ? 'from_budget'
@@ -585,9 +596,9 @@ async function movePool(args: {
 
     let allocationId: number | null = null;
 
-    if (paired) {
-      // プールへ入れるなら予算はマイナス、出すなら予算はプラス
-      const budgetAmount = args.direction === 'in' ? -args.amount : args.amount;
+    if (pair) {
+      // プールへ入れるなら予算が out（負）、出すなら予算が in（正）
+      const budgetAmount = args.direction === 'in' ? pair.outAmount : pair.inAmount;
       const reason = args.direction === 'in' ? 'to_pool' : 'from_pool';
 
       const inserted = await new sql.Request(transaction)

@@ -10,6 +10,8 @@
     "clean": "rimraf dist",
     "prestart": "npm run clean && npm run build",
     "start": "func start",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "deploy": "npm run build && func azure functionapp publish inemoto-KakeiFlow-FC"
   },
   "dependencies": {
@@ -23,6 +25,7 @@
     "@types/mssql": "^9.1.7",
     "@types/node": "^22.10.2",
     "rimraf": "^6.0.1",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.10"
   }
 }

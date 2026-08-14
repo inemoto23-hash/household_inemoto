@@ -19,6 +19,7 @@ import './functions/map';
 import './functions/home';
 import './functions/locations';
 import './functions/schedules';
+import './functions/shopping';
 import './functions/reminders';
 import './functions/recurring';
 import './functions/recurringSweep';
